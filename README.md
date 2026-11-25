@@ -1,4 +1,4 @@
-# KaufWasser
+# KaufAlarm
 
 WoW-Addon: zeigt groß **KAUF WASSER DU HUANSOHN!** auf dem Bildschirm, sobald dir Wasser,
 Munition oder etwas anderes ausgeht, und spielt dazu regelmäßig einen Sound.
@@ -36,11 +36,11 @@ angehakt.
 ## Minimap, Broker-Leisten und Addon-Fach
 
 - **Minimap-Knopf:** Linksklick öffnet die Optionen, Rechtsklick schaltet den Sound an/aus,
-  Shift-Klick testet die Warnung. Ziehbar, ausblendbar mit `/kw minimap` oder in den Optionen.
+  Shift-Klick testet die Warnung. Ziehbar, ausblendbar mit `/ka minimap` oder in den Optionen.
 - **Titan Panel, ChocolateBar, Bazooka, ElvUI usw.:** Ist LibDataBroker geladen, erscheint der
-  Eintrag *KaufWasser* mit den Vorräten aller Alarme, z. B. `37 · 1400`, rot unter der Grenze.
+  Eintrag *KaufAlarm* mit den Vorräten aller Alarme, z. B. `37 · 1400`, rot unter der Grenze.
 - **Minimap-Addons:** Ist LibDBIcon geladen, übernimmt es den Knopf.
-- **Addon-Fach:** KaufWasser steht im Addon-Menü an der Minimap, wo es der Client anbietet.
+- **Addon-Fach:** KaufAlarm steht im Addon-Menü an der Minimap, wo es der Client anbietet.
 
 Das Addon bringt selbst keine Bibliotheken mit und läuft ohne sie mit eigenem Knopf.
 
@@ -48,21 +48,21 @@ Das Addon bringt selbst keine Bibliotheken mit und läuft ohne sie mit eigenem K
 
 | Befehl | Wirkung |
 | --- | --- |
-| `/kw` | Optionen öffnen |
-| `/kw test` | Warnung und Sound testen |
-| `/kw move` | Text verschieben bzw. wieder fixieren |
-| `/kw reset` | Position zurücksetzen |
-| `/kw sound` | Sound an/aus |
-| `/kw combat` | Anzeige im Kampf an/aus |
-| `/kw minimap` | Minimap-Knopf an/aus |
-| `/kw status` | Stand aller Alarme |
+| `/ka` | Optionen öffnen |
+| `/ka test` | Warnung und Sound testen |
+| `/ka move` | Text verschieben bzw. wieder fixieren |
+| `/ka reset` | Position zurücksetzen |
+| `/ka sound` | Sound an/aus |
+| `/ka combat` | Anzeige im Kampf an/aus |
+| `/ka minimap` | Minimap-Knopf an/aus |
+| `/ka status` | Stand aller Alarme |
 
 ## Installation
 
-Den Ordner als `KaufWasser` in den AddOns-Ordner des Spiels verlinken oder kopieren, z. B.:
+Den Ordner als `KaufAlarm` in den AddOns-Ordner des Spiels verlinken oder kopieren, z. B.:
 
 ```bash
-ln -s ~/Projekte/KaufWasser "~/Games/battlenet/drive_c/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/KaufWasser"
+ln -s "$HOME/Projekte/KaufAlarm" "$HOME/Games/battlenet/drive_c/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/KaufAlarm"
 ```
 
 ## Test
@@ -74,4 +74,5 @@ luajit tests/mocktest.lua
 Prüft Logik und Optionen mit einer nachgebauten WoW-API, einmal ohne und einmal mit
 Broker-Bibliotheken, dazu die Übernahme der Einstellungen aus Version 1.x.
 
-Die mitgelieferten Sounds sind mit `tools/make-sounds.sh` (ffmpeg) erzeugt und angeglichen.
+Die mitgelieferten Sounds sind mit `tools/make-sounds.sh` (ffmpeg) erzeugt und angeglichen, das Icon
+mit `tools/make-icon.sh` aus [Media/icon.svg](Media/icon.svg).

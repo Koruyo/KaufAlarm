@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="70%">
+      <stop offset="0" stop-color="#c8261e"/>
+      <stop offset="0.65" stop-color="#7a0f0c"/>
+      <stop offset="1" stop-color="#2a0403"/>
+    </radialGradient>
+    <linearGradient id="drop" x1="0.25" y1="0" x2="0.75" y2="1">
+      <stop offset="0" stop-color="#9fe2ff"/>
+      <stop offset="0.45" stop-color="#2f9ae8"/>
+      <stop offset="1" stop-color="#0b3f8f"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Hintergrund mit Warnstrahlen -->
+  <rect width="256" height="256" fill="url(#bg)"/>
+  <g fill="#ffcf3a" opacity="0.13">
+    <path d="M128 120 L40 0 L90 0 Z"/>
+    <path d="M128 120 L166 0 L216 0 Z"/>
+    <path d="M128 120 L256 40 L256 95 Z"/>
+    <path d="M128 120 L256 175 L256 230 Z"/>
+    <path d="M128 120 L0 40 L0 95 Z"/>
+    <path d="M128 120 L0 175 L0 230 Z"/>
+  </g>
+
+  <!-- Wassertropfen -->
+  <path d="M128 18 C 128 18, 52 112, 52 160 A 76 76 0 0 0 204 160 C 204 112, 128 18, 128 18 Z"
+        fill="url(#drop)" stroke="#06204a" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M96 92 C 84 112, 72 136, 74 160 C 76 140, 92 116, 108 98 Z" fill="url(#shine)"/>
+
+  <!-- Ausrufezeichen -->
+  <g stroke="#3a0602" stroke-width="7" stroke-linejoin="round">
+    <path d="M114 78 L142 78 L136 168 L120 168 Z" fill="#ffd23a"/>
+    <circle cx="128" cy="196" r="15" fill="#ffd23a"/>
+  </g>
+
+  <!-- goldener Rahmen -->
+  <rect x="5" y="5" width="246" height="246" rx="18" fill="none" stroke="#e8b93a" stroke-width="10"/>
+  <rect x="12" y="12" width="232" height="232" rx="13" fill="none" stroke="#3a0602" stroke-width="3" opacity="0.7"/>
+</svg>

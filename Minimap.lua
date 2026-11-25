@@ -1,4 +1,4 @@
--- KaufWasser: Knopf an der Minimap und Eintrag in Broker-Leisten
+-- KaufAlarm: Knopf an der Minimap und Eintrag in Broker-Leisten
 --
 -- Linksklick öffnet die Optionen, Rechtsklick schaltet den Sound an und aus.
 --
@@ -13,8 +13,8 @@ local ADDON_NAME, ns = ...
 local M = {}
 ns.Minimap = M
 
-local NAME = "KaufWasser"
-local FALLBACK_ICON = "Interface\\Icons\\INV_Drink_18"
+local NAME = "KaufAlarm"
+local ICON = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Media\\icon"
 local DEFAULT_ANGLE = 200
 
 local settings -- db.minimap: hide, minimapPos (Winkel in Grad), wie bei LibDBIcon
@@ -22,11 +22,8 @@ local library -- LibDBIcon, falls vorhanden
 local broker -- der Eintrag bei LibDataBroker, falls vorhanden
 local button -- der eigene Knopf, falls nicht
 
--- Symbol vom Kristallwasser des Magiers, ohne auf den Item-Cache zu warten.
 local function icon()
-	local get = (C_Item and C_Item.GetItemIconByID) or GetItemIcon
-	local ok, texture = pcall(get, 8079)
-	return ok and texture or FALLBACK_ICON
+	return ICON
 end
 
 local function version()
@@ -40,7 +37,7 @@ end
 function M.FillTooltip(tooltip, ownButton)
 	if not tooltip or not tooltip.AddLine or not ns.db then return end
 	local number = version()
-	tooltip:AddLine("|cff3fa9ffKauf|rWasser" .. (number and (" |cff999999" .. number .. "|r") or ""))
+	tooltip:AddLine("|cff3fa9ffKauf|rAlarm" .. (number and (" |cff999999" .. number .. "|r") or ""))
 	local any = false
 	for _, entry in ipairs(ns.Status()) do
 		if entry.eligible then
@@ -99,7 +96,7 @@ local function followCursor()
 end
 
 local function createButton()
-	button = CreateFrame("Button", "KaufWasserMinimapButton", Minimap)
+	button = CreateFrame("Button", "KaufAlarmMinimapButton", Minimap)
 	button:SetSize(31, 31)
 	button:SetFrameStrata("MEDIUM")
 	button:SetFrameLevel(8)
@@ -149,7 +146,7 @@ local function registerBroker()
 	if not (okBroker and ldb and ldb.NewDataObject) then return false end
 	local ok, object = pcall(ldb.NewDataObject, ldb, NAME, {
 		type = "data source",
-		label = "KaufWasser",
+		label = "KaufAlarm",
 		text = "-",
 		icon = icon(),
 		OnClick = M.OnClick,
@@ -218,17 +215,17 @@ M.internals = {
 }
 
 -- Addon-Fach (das Menü unter dem Kalender bzw. an der Minimap)
-function KaufWasser_OnAddonCompartmentClick(_, mouseButton)
+function KaufAlarm_OnAddonCompartmentClick(_, mouseButton)
 	M.OnClick(nil, mouseButton)
 end
 
-function KaufWasser_OnAddonCompartmentEnter(_, anchor)
+function KaufAlarm_OnAddonCompartmentEnter(_, anchor)
 	if not GameTooltip then return end
 	GameTooltip:SetOwner(type(anchor) == "table" and anchor or UIParent, "ANCHOR_LEFT")
 	M.FillTooltip(GameTooltip)
 	GameTooltip:Show()
 end
 
-function KaufWasser_OnAddonCompartmentLeave()
+function KaufAlarm_OnAddonCompartmentLeave()
 	if GameTooltip then GameTooltip:Hide() end
 end

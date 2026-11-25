@@ -1,10 +1,10 @@
--- KaufWasser: Logik, Warnung auf dem Bildschirm, Sounds, Slash-Befehle
+-- KaufAlarm: Logik, Warnung auf dem Bildschirm, Sounds, Slash-Befehle
 --
 -- Jeder Alarm ("watch") zählt eine Liste von Items (und auf Wunsch die
 -- ausgerüstete Munition) und warnt, sobald weniger als die Grenze im Gepäck ist.
 local ADDON_NAME, ns = ...
 
-local PREFIX = "|cff3fa9ffKaufWasser|r: "
+local PREFIX = "|cff3fa9ffKaufAlarm|r: "
 local SOUND_PATH = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Sounds\\"
 local FALLBACK_SOUND = 416 -- Murloc, falls eine Sounddatei fehlt
 local AMMO_SLOT = INVSLOT_AMMO or 0
@@ -80,8 +80,8 @@ ns.Print = Print
 --------------------------------------------------------------------------------
 
 local function SetupDB()
-	KaufWasserDB = type(KaufWasserDB) == "table" and KaufWasserDB or {}
-	db = KaufWasserDB
+	KaufAlarmDB = type(KaufAlarmDB) == "table" and KaufAlarmDB or {}
+	db = KaufAlarmDB
 	ns.db = db
 	for key, value in pairs(DEFAULTS) do
 		if db[key] == nil then
@@ -213,7 +213,7 @@ ns.PlayNextSound = PlayNextSound
 -- Warnung auf dem Bildschirm
 --------------------------------------------------------------------------------
 
-local warn = CreateFrame("Frame", "KaufWasserWarnung", UIParent)
+local warn = CreateFrame("Frame", "KaufAlarmWarnung", UIParent)
 warn:SetFrameStrata("HIGH")
 warn:SetClampedToScreen(true)
 warn:SetMovable(true)
@@ -348,7 +348,7 @@ local function Update()
 
 	local subText
 	if unlocked then
-		subText = "Ziehen zum Verschieben, /kw move zum Fixieren"
+		subText = "Ziehen zum Verschieben, /ka move zum Fixieren"
 	elseif not db.showDetails then
 		subText = ""
 	else
@@ -408,18 +408,18 @@ end
 
 local function PrintHelp()
 	Print("Befehle:")
-	Print("  /kw - Optionen öffnen (Alarme, Items, Sounds)")
-	Print("  /kw test - Warnung und Sound testen")
-	Print("  /kw move - Position ent-/sperren, /kw reset - Position zurücksetzen")
-	Print("  /kw sound - Sound an/aus")
-	Print("  /kw combat - Anzeige im Kampf an/aus")
-	Print("  /kw minimap - Knopf an der Minimap an/aus")
-	Print("  /kw status - Stand aller Alarme")
+	Print("  /ka - Optionen öffnen (Alarme, Items, Sounds)")
+	Print("  /ka test - Warnung und Sound testen")
+	Print("  /ka move - Position ent-/sperren, /ka reset - Position zurücksetzen")
+	Print("  /ka sound - Sound an/aus")
+	Print("  /ka combat - Anzeige im Kampf an/aus")
+	Print("  /ka minimap - Knopf an der Minimap an/aus")
+	Print("  /ka status - Stand aller Alarme")
 end
 
-SLASH_KAUFWASSER1 = "/kw"
-SLASH_KAUFWASSER2 = "/kaufwasser"
-SlashCmdList.KAUFWASSER = function(msg)
+SLASH_KAUFALARM1 = "/ka"
+SLASH_KAUFALARM2 = "/kaufalarm"
+SlashCmdList.KAUFALARM = function(msg)
 	local cmd = ((msg or ""):match("^%s*(%S*)") or ""):lower()
 
 	if cmd == "" or cmd == "options" or cmd == "config" then

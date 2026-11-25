@@ -1,4 +1,4 @@
--- KaufWasser: Optionen unter Einstellungen -> AddOns -> KaufWasser
+-- KaufAlarm: Optionen unter Einstellungen -> AddOns -> KaufAlarm
 --
 -- Drei Seiten: Allgemein (Anzeige, Sound), Alarme (was gezählt wird) und Sounds
 -- (welche Sounds abgespielt werden).
@@ -74,7 +74,7 @@ end
 local sliderCount = 0
 local function Slider(page, label, x, y, minimum, maximum, step, suffix, get, set)
 	sliderCount = sliderCount + 1
-	local name = "KaufWasserSlider" .. sliderCount
+	local name = "KaufAlarmSlider" .. sliderCount
 	local slider = CreateFrame("Slider", name, page, "OptionsSliderTemplate")
 	slider:SetPoint("TOPLEFT", page, "TOPLEFT", x, y)
 	slider:SetSize(250, 17)
@@ -229,9 +229,9 @@ local function OpenCategory(category)
 end
 
 local function BuildMain()
-	local page = NewPage("KaufWasserOptionen", "|cff3fa9ffKauf|rWasser",
+	local page = NewPage("KaufAlarmOptionen", "|TInterface\\AddOns\\KaufAlarm\\Media\\icon:22:22:0:-2|t |cff3fa9ffKauf|rAlarm",
 		"Große Warnung, wenn Wasser, Munition oder anderes knapp wird. Was gezählt wird, stellst du unter \"Alarme\" ein.")
-	page.name = "KaufWasser"
+	page.name = "KaufAlarm"
 
 	local status = page:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
 	status:SetPoint("TOPLEFT", page, "TOPLEFT", 18, -66)
@@ -289,7 +289,7 @@ local function BuildMain()
 	hint:SetPoint("RIGHT", page, "RIGHT", -16, 0)
 	hint:SetJustifyH("LEFT")
 	hint:SetText("Titan Panel, ChocolateBar, Bazooka, ElvUI und andere Broker-Leisten zeigen den Eintrag "
-		.. "\"KaufWasser\" mit deinen Vorräten. Befehle: /kw help")
+		.. "\"KaufAlarm\" mit deinen Vorräten. Befehle: /ka help")
 	return page
 end
 
@@ -298,7 +298,7 @@ end
 --------------------------------------------------------------------------------
 
 StaticPopupDialogs = StaticPopupDialogs or {}
-StaticPopupDialogs.KAUFWASSER_DELETE = {
+StaticPopupDialogs.KAUFALARM_DELETE = {
 	text = "Alarm \"%s\" löschen?",
 	button1 = YES or "Ja",
 	button2 = NO or "Nein",
@@ -312,10 +312,10 @@ StaticPopupDialogs.KAUFWASSER_DELETE = {
 }
 
 local function BuildAlarms()
-	local page = NewPage("KaufWasserOptionenAlarme", "Alarme",
+	local page = NewPage("KaufAlarmOptionenAlarme", "Alarme",
 		"Jeder Alarm zählt seine Items zusammen und warnt unter der Grenze.")
 	page.name = "Alarme"
-	page.parent = "KaufWasser"
+	page.parent = "KaufAlarm"
 
 	Button(page, "<", 16, -56, 28, function()
 		selected = selected > 1 and selected - 1 or #ns.db.watches
@@ -342,7 +342,7 @@ local function BuildAlarms()
 		if #ns.db.watches <= 1 then
 			ns.Print("Der letzte Alarm bleibt. Schalte ihn stattdessen aus.")
 		else
-			StaticPopup_Show("KAUFWASSER_DELETE", Watch().name)
+			StaticPopup_Show("KAUFALARM_DELETE", Watch().name)
 		end
 	end)
 
@@ -401,7 +401,7 @@ local function BuildAlarms()
 	end
 
 	Header(page, "Items", -332)
-	local addBox = CreateFrame("EditBox", "KaufWasserItemEingabe", page, "InputBoxTemplate")
+	local addBox = CreateFrame("EditBox", "KaufAlarmItemEingabe", page, "InputBoxTemplate")
 	addBox:SetPoint("TOPLEFT", page, "TOPLEFT", 28, -367)
 	addBox:SetSize(300, 20)
 	addBox:SetAutoFocus(false)
@@ -430,7 +430,7 @@ local function BuildAlarms()
 		end)
 	end
 
-	local list = ScrollList(page, "KaufWasserItemListe", -395, 135)
+	local list = ScrollList(page, "KaufAlarmItemListe", -395, 135)
 	local rows = {}
 	local empty = list:CreateFontString(nil, "ARTWORK", "GameFontDisable")
 	empty:SetPoint("TOPLEFT", 6, -6)
@@ -490,11 +490,11 @@ end
 --------------------------------------------------------------------------------
 
 local function BuildSounds()
-	local page = NewPage("KaufWasserOptionenSounds", "Sounds",
+	local page = NewPage("KaufAlarmOptionenSounds", "Sounds",
 		"Angehakte Sounds werden abgespielt (zufällig oder der Reihe nach, siehe Hauptseite). "
 		.. "Eigene Sounds: Dateien in den Ordner Sounds legen, tools/update-sounds.sh ausführen, WoW neu starten.")
 	page.name = "Sounds"
-	page.parent = "KaufWasser"
+	page.parent = "KaufAlarm"
 
 	local function setAll(value)
 		for _, entry in ipairs(ns.sounds or {}) do ns.SetSoundEnabled(entry, value) end
@@ -506,7 +506,7 @@ local function BuildSounds()
 		if not ns.PlayNextSound() then ns.Print("Kein Sound angehakt.") end
 	end)
 
-	local list = ScrollList(page, "KaufWasserSoundListe", -104, 440)
+	local list = ScrollList(page, "KaufAlarmSoundListe", -104, 440)
 	for i, entry in ipairs(ns.sounds or {}) do
 		local row = CreateFrame("Frame", nil, list)
 		row:SetSize(530, 26)

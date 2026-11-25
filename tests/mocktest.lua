@@ -42,7 +42,7 @@ local function run(withBroker)
 		end })
 	end
 
-	_G.KaufWasserDB = nil
+	_G.KaufAlarmDB = nil
 	function CreateFrame(kind, name, parent)
 		local w = widget(parent); w.kind = kind
 		if name then named[name] = w; _G[name] = w end
@@ -106,13 +106,13 @@ local function run(withBroker)
 	end
 
 	local ns = {}
-	for _, file in ipairs({ "Sounds.lua", "Minimap.lua", "KaufWasser.lua", "Options.lua" }) do
-		assert(loadfile(dir .. "/" .. file))("KaufWasser", ns)
+	for _, file in ipairs({ "Sounds.lua", "Minimap.lua", "KaufAlarm.lua", "Options.lua" }) do
+		assert(loadfile(dir .. "/" .. file))("KaufAlarm", ns)
 	end
 
 	local ev
 	for _, f in ipairs(frames) do if f.scripts.OnEvent then ev = f end end
-	local warn = named.KaufWasserWarnung
+	local warn = named.KaufAlarmWarnung
 	local function fire(e, a) ev.scripts.OnEvent(ev, e, a) end
 	local function runTimers() local t = timers; timers = {}; for _, f in ipairs(t) do f() end end
 	local function tick() if warn.shown then warn.scripts.OnUpdate(warn, 0.1) end end
@@ -139,10 +139,10 @@ local function run(withBroker)
 	local function click(f, mouse) f.scripts.OnClick(f, mouse or "LeftButton") end
 	local function type_(box, text) box.focus = true; box.txt = text; box:ClearFocus() end
 
-	fire("ADDON_LOADED", "KaufWasser"); fire("PLAYER_LOGIN"); fire("PLAYER_ENTERING_WORLD")
+	fire("ADDON_LOADED", "KaufAlarm"); fire("PLAYER_LOGIN"); fire("PLAYER_ENTERING_WORLD")
 	fire("BAG_UPDATE_DELAYED")
 	check(not warn.shown, "vor dem Laden des Gepäcks keine Warnung")
-	check(#KaufWasserDB.watches == 2, "Standard: Alarme Wasser und Munition")
+	check(#KaufAlarmDB.watches == 2, "Standard: Alarme Wasser und Munition")
 	items[8766] = 39; runTimers(); tick()
 	check(warn.shown and warnText() == "KAUF WASSER DU HUANSOHN!", "39 Trichterwindentau -> Wasser-Warnung")
 	check(#played == 1 and channels[1] == "Master", "Sound sofort beim Erscheinen")
@@ -167,33 +167,34 @@ local function run(withBroker)
 	-- Minimap, Broker, Addon-Fach
 	local button = ns.Minimap.internals.button()
 	if withBroker then
-		local obj = ldbObjects.KaufWasser
+		local obj = ldbObjects.KaufAlarm
 		check(obj and obj.type == "data source", "Broker-Eintrag für Titan Panel & Co. angelegt")
+		check(obj.icon == "Interface\\AddOns\\KaufAlarm\\Media\\icon", "eigenes Icon im Broker-Eintrag")
 		check(obj.text == "50", "Broker zeigt den Wasser-Stand des Schamanen")
 		class = "HUNTER"; ammo = { 18042, 300 }; fire("BAG_UPDATE_DELAYED")
 		check(obj.text == "50 · |cffff3333300|r", "Broker beim Jäger: Wasser und Munition, Munition rot")
 		local tip = widget(); obj.OnTooltipShow(tip)
 		check(table.concat(tip.lines, "|"):find("Munition 300 / 1000", 1, true), "Broker-Tooltip zeigt den Stand")
 		class = "SHAMAN"; fire("BAG_UPDATE_DELAYED")
-		check(iconRegistered and iconRegistered.settings == KaufWasserDB.minimap, "Knopf läuft über LibDBIcon")
+		check(iconRegistered and iconRegistered.settings == KaufAlarmDB.minimap, "Knopf läuft über LibDBIcon")
 		check(button == nil, "kein eigener Knopf neben LibDBIcon")
-		obj.OnClick(nil, "LeftButton"); check(opened[#opened] == "KaufWasser", "Broker-Linksklick öffnet Optionen")
-		ns.Minimap.SetShown(false); check(KaufWasserDB.minimap.hide == true, "Minimap-Knopf über LibDBIcon ausblendbar")
+		obj.OnClick(nil, "LeftButton"); check(opened[#opened] == "KaufAlarm", "Broker-Linksklick öffnet Optionen")
+		ns.Minimap.SetShown(false); check(KaufAlarmDB.minimap.hide == true, "Minimap-Knopf über LibDBIcon ausblendbar")
 		ns.Minimap.SetShown(true)
 	else
 		check(button and button.shown, "eigener Minimap-Knopf ohne Bibliotheken")
 		button.scripts.OnDragStart(button); button.scripts.OnUpdate(button)
 		button.scripts.OnDragStop(button)
-		check(KaufWasserDB.minimap.minimapPos == 180, "Knopf lässt sich um die Minimap ziehen")
+		check(KaufAlarmDB.minimap.minimapPos == 180, "Knopf lässt sich um die Minimap ziehen")
 		button.scripts.OnEnter(button)
 		check(table.concat(GameTooltip.lines, "|"):find("Wasser 50 / 40", 1, true), "Tooltip am Knopf zeigt Stand")
-		button.scripts.OnClick(button, "LeftButton"); check(opened[#opened] == "KaufWasser", "Linksklick öffnet Optionen")
-		SlashCmdList.KAUFWASSER("minimap"); check(not button.shown and KaufWasserDB.minimap.hide, "/kw minimap blendet aus")
-		SlashCmdList.KAUFWASSER("minimap"); check(button.shown, "/kw minimap blendet wieder ein")
+		button.scripts.OnClick(button, "LeftButton"); check(opened[#opened] == "KaufAlarm", "Linksklick öffnet Optionen")
+		SlashCmdList.KAUFALARM("minimap"); check(not button.shown and KaufAlarmDB.minimap.hide, "/ka minimap blendet aus")
+		SlashCmdList.KAUFALARM("minimap"); check(button.shown, "/ka minimap blendet wieder ein")
 	end
-	ns.Minimap.OnClick(nil, "RightButton"); check(KaufWasserDB.sound == false, "Rechtsklick schaltet Sound aus")
-	KaufWasser_OnAddonCompartmentClick(nil, "RightButton"); check(KaufWasserDB.sound == true, "Addon-Fach: Rechtsklick Sound an")
-	KaufWasser_OnAddonCompartmentEnter(nil, widget()); KaufWasser_OnAddonCompartmentLeave()
+	ns.Minimap.OnClick(nil, "RightButton"); check(KaufAlarmDB.sound == false, "Rechtsklick schaltet Sound aus")
+	KaufAlarm_OnAddonCompartmentClick(nil, "RightButton"); check(KaufAlarmDB.sound == true, "Addon-Fach: Rechtsklick Sound an")
+	KaufAlarm_OnAddonCompartmentEnter(nil, widget()); KaufAlarm_OnAddonCompartmentLeave()
 	shift = true; local n = #played; ns.Minimap.OnClick(nil, "LeftButton"); shift = false
 	check(#played == n + 1 and warn.shown, "Shift-Klick testet Warnung + Sound"); runTimers()
 	check(not warn.shown, "Test endet wieder")
@@ -202,16 +203,16 @@ local function run(withBroker)
 	local pages = ns.optionPages
 	check(not pages.main.shown and not pages.alarms.shown, "Options-Seiten starten versteckt")
 	pages.main.shown = true; SettingsPanel.shown = true; pages.main.scripts.OnShow(pages.main)
-	SlashCmdList.KAUFWASSER(""); check(not SettingsPanel.shown, "/kw bei offenen Optionen schließt sie")
-	pages.main.shown = false; SlashCmdList.KAUFWASSER(""); check(opened[#opened] == "KaufWasser", "/kw öffnet die Optionen")
+	SlashCmdList.KAUFALARM(""); check(not SettingsPanel.shown, "/ka bei offenen Optionen schließt sie")
+	pages.main.shown = false; SlashCmdList.KAUFALARM(""); check(opened[#opened] == "KaufAlarm", "/ka öffnet die Optionen")
 	pages.main.shown = true
 	click(find(pages.main, "Alarme bearbeiten")); check(opened[#opened] == "Alarme", "Knopf springt zur Seite Alarme")
 	local order = find(pages.main, "Reihenfolge: zufällig"); click(order)
-	check(KaufWasserDB.soundOrder == "sequence" and order.txt == "Reihenfolge: der Reihe nach", "Reihenfolge umschaltbar")
+	check(KaufAlarmDB.soundOrder == "sequence" and order.txt == "Reihenfolge: der Reihe nach", "Reihenfolge umschaltbar")
 	local channel = find(pages.main, "Lautstärke-Regler: Gesamt"); click(channel)
-	check(KaufWasserDB.soundChannel == "SFX", "Lautstärke-Regler umschaltbar")
+	check(KaufAlarmDB.soundChannel == "SFX", "Lautstärke-Regler umschaltbar")
 	local interval = find(pages.main, "Wiederholen alle: 60 Sekunden")
-	interval:SetValue(120); check(KaufWasserDB.soundInterval == 120, "Wiederholrate per Regler")
+	interval:SetValue(120); check(KaufAlarmDB.soundInterval == 120, "Wiederholrate per Regler")
 	pages.main.shown = false
 
 	-- Sounds: Auswahl und Reihenfolge
@@ -224,7 +225,7 @@ local function run(withBroker)
 	end
 	local seq = {}
 	for _ = 1, 4 do ns.PlayNextSound(); seq[#seq + 1] = played[#played] end
-	local base = "Interface\\AddOns\\KaufWasser\\Sounds\\"
+	local base = "Interface\\AddOns\\KaufAlarm\\Sounds\\"
 	local a, b = base .. ns.sounds[2], base .. ns.sounds[4]
 	check((seq[1] == a or seq[1] == b) and (seq[2] == a or seq[2] == b) and seq[1] ~= seq[2]
 		and seq[3] == seq[1] and seq[4] == seq[2], "der Reihe nach, nur angehakte Sounds, abwechselnd")
@@ -236,31 +237,31 @@ local function run(withBroker)
 	alarms.shown = true; alarms.scripts.OnShow(alarms)
 	local threshold = find(alarms, "Warnen unter")
 	check(threshold.txt == "40", "Seite zeigt Grenze des Wasser-Alarms")
-	type_(threshold, "60"); check(KaufWasserDB.watches[1].threshold == 60 and warn.shown, "Grenze 60 per Eingabe -> Warnung")
-	local add = named.KaufWasserItemEingabe
+	type_(threshold, "60"); check(KaufAlarmDB.watches[1].threshold == 60 and warn.shown, "Grenze 60 per Eingabe -> Warnung")
+	local add = named.KaufAlarmItemEingabe
 	add.focus = true; hooks.ChatEdit_InsertLink("|cffffffff|Hitem:1645::::|h[Mondbeerensaft]|h|r")
 	check(add.txt:find("item:1645"), "Shift-Klick schreibt Item-Link ins Feld")
 	add.scripts.OnEnterPressed(add)
 	items[1645] = 20; fire("BAG_UPDATE_DELAYED")
-	check(KaufWasserDB.watches[1].items[1645] and not warn.shown, "Mondbeerensaft zählt mit (50 + 20 >= 60)")
+	check(KaufAlarmDB.watches[1].items[1645] and not warn.shown, "Mondbeerensaft zählt mit (50 + 20 >= 60)")
 	add.txt = "Trichterwindentau"; add.scripts.OnEnterPressed(add)
-	check(KaufWasserDB.watches[1].items[8766], "Item per Name aus dem Cache")
+	check(KaufAlarmDB.watches[1].items[8766], "Item per Name aus dem Cache")
 	-- Magierwasser entfernen
 	local removed = false
 	for _, f in ipairs(frames) do
 		if f.txt == "Entfernen" and f.parent.id == 8079 and f.parent.shown then click(f); removed = true break end
 	end
-	check(removed and not KaufWasserDB.watches[1].items[8079], "Item lässt sich entfernen")
+	check(removed and not KaufAlarmDB.watches[1].items[8079], "Item lässt sich entfernen")
 	click(find(alarms, ">")); check(find(alarms, "Warnen unter").txt == "1000", "zweiter Alarm: Munition")
 	click(find(alarms, "Neuer Alarm"))
-	check(#KaufWasserDB.watches == 3, "neuer Alarm angelegt")
+	check(#KaufAlarmDB.watches == 3, "neuer Alarm angelegt")
 	type_(find(alarms, "Name"), "Seelensplitter")
 	type_(find(alarms, "Warntext"), "NUR NOCH {anzahl} {name}, {fehlen} FEHLEN BIS {grenze}! {quatsch}")
 	type_(find(alarms, "Warnen unter"), "5")
 	click(find(alarms, "Nur Klassen mit Mana")) -- an
 	local lock = find(alarms, "WARLOCK"); lock.checked = true; click(lock)
 	local color = find(alarms, "Textfarbe: Rot"); click(color); click(color)
-	check(KaufWasserDB.watches[3].color == "yellow" and color.txt == "Textfarbe: Gelb", "Textfarbe umschaltbar")
+	check(KaufAlarmDB.watches[3].color == "yellow" and color.txt == "Textfarbe: Gelb", "Textfarbe umschaltbar")
 	add.txt = "6265"; add.scripts.OnEnterPressed(add)
 	class = "WARLOCK"; items[6265] = 2; fire("BAG_UPDATE_DELAYED")
 	local expected = "NUR NOCH 2 Seelensplitter, 3 FEHLEN BIS 5! {quatsch}"
@@ -278,24 +279,24 @@ local function run(withBroker)
 		return false
 	end
 	check(detailShown(), "Zeile mit der Anzahl unter dem Warntext")
-	KaufWasserDB.showDetails = false; fire("BAG_UPDATE_DELAYED")
+	KaufAlarmDB.showDetails = false; fire("BAG_UPDATE_DELAYED")
 	check(not detailShown(), "Zeile mit der Anzahl lässt sich ausblenden")
-	KaufWasserDB.showDetails = true
+	KaufAlarmDB.showDetails = true
 	class = "MAGE"; fire("BAG_UPDATE_DELAYED")
 	line = nil
 	for _, f in ipairs(frames) do if f.parent == warn and f.shown and f.txt == expected then line = f end end
 	check(not line, "Klassenauswahl: Magier bekommt den Alarm nicht")
 	click(find(alarms, "Löschen")); check(popup and popup.arg == "Seelensplitter", "Löschen fragt nach")
-	StaticPopupDialogs.KAUFWASSER_DELETE.OnAccept(); check(#KaufWasserDB.watches == 2, "Alarm gelöscht")
+	StaticPopupDialogs.KAUFALARM_DELETE.OnAccept(); check(#KaufAlarmDB.watches == 2, "Alarm gelöscht")
 	alarms.shown = false
 
 	-- Rest
 	class = "WARRIOR"; fire("BAG_UPDATE_DELAYED"); check(not warn.shown, "Krieger wird nicht gewarnt")
 	class = "MAGE"; level = 30; fire("BAG_UPDATE_DELAYED"); check(not warn.shown, "unter Stufe 45 keine Wasser-Warnung")
-	SlashCmdList.KAUFWASSER("move"); check(warn.shown, "/kw move zeigt Rahmen")
-	warn.scripts.OnDragStop(warn); check(KaufWasserDB.x == 5, "Position gespeichert")
-	SlashCmdList.KAUFWASSER("reset"); check(KaufWasserDB.x == 0 and KaufWasserDB.y == 160, "/kw reset")
-	SlashCmdList.KAUFWASSER("status"); check(chat[#chat]:find("Munition"), "/kw status listet die Alarme")
+	SlashCmdList.KAUFALARM("move"); check(warn.shown, "/ka move zeigt Rahmen")
+	warn.scripts.OnDragStop(warn); check(KaufAlarmDB.x == 5, "Position gespeichert")
+	SlashCmdList.KAUFALARM("reset"); check(KaufAlarmDB.x == 0 and KaufAlarmDB.y == 160, "/ka reset")
+	SlashCmdList.KAUFALARM("status"); check(chat[#chat]:find("Munition"), "/ka status listet die Alarme")
 end
 
 run(false)
@@ -303,7 +304,7 @@ run(true)
 
 -- Migration: alte Werte landen im Wasser-Alarm
 do
-	KaufWasserDB = { threshold = 25, extraItems = { [1645] = true }, sound = false }
+	KaufAlarmDB = { threshold = 25, extraItems = { [1645] = true }, sound = false }
 	local ns = {}
 	local events
 	local orig = CreateFrame
@@ -312,14 +313,14 @@ do
 		if kind == "Frame" and not name and not parent then events = f end
 		return f
 	end
-	for _, file in ipairs({ "Sounds.lua", "Minimap.lua", "KaufWasser.lua", "Options.lua" }) do
-		assert(loadfile(dir .. "/" .. file))("KaufWasser", ns)
+	for _, file in ipairs({ "Sounds.lua", "Minimap.lua", "KaufAlarm.lua", "Options.lua" }) do
+		assert(loadfile(dir .. "/" .. file))("KaufAlarm", ns)
 	end
 	CreateFrame = orig
-	events.scripts.OnEvent(events, "ADDON_LOADED", "KaufWasser")
-	local water = KaufWasserDB.watches[1]
+	events.scripts.OnEvent(events, "ADDON_LOADED", "KaufAlarm")
+	local water = KaufAlarmDB.watches[1]
 	assert(water.threshold == 25 and water.items[1645] and water.items[8766], "Migration")
-	assert(KaufWasserDB.threshold == nil and KaufWasserDB.extraItems == nil and KaufWasserDB.sound == false, "Migration räumt auf")
+	assert(KaufAlarmDB.threshold == nil and KaufAlarmDB.extraItems == nil and KaufAlarmDB.sound == false, "Migration räumt auf")
 	print("ok   Migration aus Version 1.x")
 end
 print("alle Checks ok")
