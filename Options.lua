@@ -259,26 +259,28 @@ local function BuildMain()
 		function() return db.fontSize end, function(v) db.fontSize = v end)
 	Check(page, "Auch im Kampf anzeigen", 18, -200,
 		function() return db.showInCombat end, function(v) db.showInCombat = v end)
-	Check(page, "Anzahl unter dem Warntext anzeigen", 18, -225,
+	Check(page, "Auch in Dungeons, Raids und Schlachtfeldern anzeigen", 18, -225,
+		function() return db.showInInstances end, function(v) db.showInInstances = v end)
+	Check(page, "Anzahl unter dem Warntext anzeigen", 18, -250,
 		function() return db.showDetails end, function(v) db.showDetails = v end)
-	Check(page, "Knopf an der Minimap", 18, -250,
+	Check(page, "Knopf an der Minimap", 18, -275,
 		function() return ns.Minimap.IsShown() end, function(v) ns.Minimap.SetShown(v) end)
-	Button(page, "Warnung testen", 20, -285, 170, ns.RunTest)
-	Button(page, "Verschieben an/aus", 200, -285, 170, ns.ToggleUnlocked)
-	Button(page, "Position zurücksetzen", 380, -285, 170, ns.ResetPosition)
+	Button(page, "Warnung testen", 20, -310, 170, ns.RunTest)
+	Button(page, "Verschieben an/aus", 200, -310, 170, ns.ToggleUnlocked)
+	Button(page, "Position zurücksetzen", 380, -310, 170, ns.ResetPosition)
 
-	Header(page, "Sound", -325)
-	Check(page, "Sound abspielen, solange die Warnung sichtbar ist", 18, -343,
+	Header(page, "Sound", -350)
+	Check(page, "Sound abspielen, solange die Warnung sichtbar ist", 18, -368,
 		function() return db.sound end, function(v) db.sound = v end)
-	Slider(page, "Wiederholen alle", 22, -395, 5, 300, 0.25, " Sekunden",
+	Slider(page, "Wiederholen alle", 22, -420, 5, 300, 0.25, " Sekunden",
 		function() return db.soundInterval end, function(v) db.soundInterval = v end)
-	Button(page, "Nächsten Sound spielen", 312, -391, 200, function()
+	Button(page, "Nächsten Sound spielen", 312, -416, 200, function()
 		if not ns.PlayNextSound() then ns.Print("Kein Sound angehakt (Seite \"Sounds\").") end
 	end)
-	Cycle(page, 20, -430, 240,
+	Cycle(page, 20, -455, 240,
 		function() return "Reihenfolge: " .. ns.ORDER_NAMES[db.soundOrder] end,
 		function() db.soundOrder = db.soundOrder == "random" and "sequence" or "random" end)
-	Cycle(page, 270, -430, 240,
+	Cycle(page, 270, -455, 240,
 		function() return "Lautstärke-Regler: " .. (ns.CHANNEL_NAMES[db.soundChannel] or db.soundChannel) end,
 		function()
 			local next = 1
@@ -289,7 +291,7 @@ local function BuildMain()
 		end)
 
 	local hint = page:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-	hint:SetPoint("TOPLEFT", page, "TOPLEFT", 18, -470)
+	hint:SetPoint("TOPLEFT", page, "TOPLEFT", 18, -495)
 	hint:SetPoint("RIGHT", page, "RIGHT", -16, 0)
 	hint:SetJustifyH("LEFT")
 	hint:SetText("Titan Panel, ChocolateBar, Bazooka, ElvUI und andere Broker-Leisten zeigen den Eintrag "

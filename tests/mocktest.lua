@@ -5,6 +5,7 @@ local dir = arg[1] or "."
 local function run(withBroker)
 	local now, items, level, class = 100, {}, 60, "SHAMAN"
 	local ammo = nil -- { id, count }
+	local instance = nil -- nil, "party", "raid", "pvp", "arena", "none"
 	local played, channels, timers, shift = {}, {}, {}, false
 
 	local frames, named = {}, {}
@@ -60,6 +61,7 @@ local function run(withBroker)
 	function UnitClass() return "x", class end
 	function UnitLevel() return level end
 	function UnitAffectingCombat() return false end
+	function IsInInstance() return instance ~= nil and instance ~= "none", instance or "none" end
 	function GetTime() return now end
 	function GetCursorPosition() return 400, 500 end -- links von der Minimap: 180 Grad
 	function IsShiftKeyDown() return shift end
@@ -164,6 +166,16 @@ local function run(withBroker)
 	fire("PLAYER_REGEN_DISABLED"); items[8079] = 0; fire("BAG_UPDATE_DELAYED")
 	check(not warn.shown, "im Kampf versteckt")
 	fire("PLAYER_REGEN_ENABLED"); check(warn.shown, "nach dem Kampf wieder da")
+	for _, kind in ipairs({ "party", "raid", "pvp", "arena" }) do
+		instance = kind; fire("ZONE_CHANGED_NEW_AREA")
+		local n = #played; now = now + 100; tick()
+		check(not warn.shown and #played == n, "in Instanz-Typ " .. kind .. " weder Text noch Sound")
+	end
+	instance = "none"; fire("ZONE_CHANGED_NEW_AREA"); check(warn.shown, "nach der Instanz wieder da")
+	instance = "raid"; fire("ZONE_CHANGED_NEW_AREA")
+	SlashCmdList.KAUFALARM("instanz"); check(KaufAlarmDB.showInInstances and warn.shown, "/ka instanz zeigt auch im Raid")
+	SlashCmdList.KAUFALARM("instanz"); check(not KaufAlarmDB.showInInstances and not warn.shown, "/ka instanz wieder aus")
+	instance = nil; fire("ZONE_CHANGED_NEW_AREA")
 
 	-- Munition für Jäger
 	check(not warnText():find("MUNITION"), "Schamane bekommt keine Munitions-Warnung")
@@ -223,6 +235,9 @@ local function run(withBroker)
 	SlashCmdList.KAUFALARM(""); check(not SettingsPanel.shown, "/ka bei offenen Optionen schließt sie")
 	pages.main.shown = false; SlashCmdList.KAUFALARM(""); check(opened[#opened] == "KaufAlarm", "/ka öffnet die Optionen")
 	pages.main.shown = true
+	local inst = find(pages.main, "Auch in Dungeons, Raids und Schlachtfeldern anzeigen")
+	inst.checked = true; click(inst); check(KaufAlarmDB.showInInstances == true, "Haken für Instanzen setzt die Einstellung")
+	inst.checked = false; click(inst); check(KaufAlarmDB.showInInstances == false, "Haken für Instanzen wieder aus")
 	click(find(pages.main, "Alarme bearbeiten")); check(opened[#opened] == "Alarme", "Knopf springt zur Seite Alarme")
 	local order = find(pages.main, "Reihenfolge: zufällig"); click(order)
 	check(KaufAlarmDB.soundOrder == "sequence" and order.txt == "Reihenfolge: der Reihe nach", "Reihenfolge umschaltbar")

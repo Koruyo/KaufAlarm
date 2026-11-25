@@ -58,6 +58,7 @@ end
 local DEFAULTS = {
 	fontSize = 64,
 	showInCombat = false,
+	showInInstances = false, -- in Dungeons, Raids, Schlachtfeldern und Arenen nie warnen
 	showDetails = true, -- kleine Zeile mit der Anzahl unter dem Warntext
 	sound = true,
 	soundInterval = 15.25, -- etwas länger als der längste Clip (15,19 s), damit sich nichts überlappt
@@ -381,6 +382,15 @@ local function Render(shown, subText)
 	warn:SetSize(width, math.max(1, #shown) * (db.fontSize + 4) + subHeight + 10)
 end
 
+-- Dungeon, Raid, Schlachtfeld oder Arena?
+local HIDDEN_INSTANCES = { party = true, raid = true, pvp = true, arena = true }
+local function InGroupInstance()
+	if not IsInInstance then return false end
+	local inInstance, instanceType = IsInInstance()
+	return inInstance and HIDDEN_INSTANCES[instanceType] or false
+end
+ns.InGroupInstance = InGroupInstance
+
 local function Update()
 	if not db then return end
 	local status = Status()
@@ -388,7 +398,9 @@ local function Update()
 	for _, entry in ipairs(status) do
 		if entry.low then low[#low + 1] = entry end
 	end
-	alarmActive = #low > 0 and (db.showInCombat or not inCombat)
+	alarmActive = #low > 0
+		and (db.showInCombat or not inCombat)
+		and (db.showInInstances or not InGroupInstance())
 	lowActive = alarmActive and low or {}
 
 	local shown = {}
@@ -467,6 +479,7 @@ local function PrintHelp()
 	Print("  /ka move - Position ent-/sperren, /ka reset - Position zurücksetzen")
 	Print("  /ka sound - Sound an/aus")
 	Print("  /ka combat - Anzeige im Kampf an/aus")
+	Print("  /ka instanz - Anzeige in Dungeons, Raids und Schlachtfeldern an/aus")
 	Print("  /ka minimap - Knopf an der Minimap an/aus")
 	Print("  /ka status - Stand aller Alarme")
 end
@@ -489,6 +502,9 @@ SlashCmdList.KAUFALARM = function(msg)
 	elseif cmd == "combat" then
 		db.showInCombat = not db.showInCombat
 		Print("Anzeige im Kampf " .. (db.showInCombat and "an." or "aus."))
+	elseif cmd == "instanz" or cmd == "instance" then
+		db.showInInstances = not db.showInInstances
+		Print("Anzeige in Dungeons, Raids und Schlachtfeldern " .. (db.showInInstances and "an." or "aus."))
 	elseif cmd == "minimap" then
 		local show = not ns.Minimap.IsShown()
 		ns.Minimap.SetShown(show)
@@ -519,6 +535,7 @@ events:RegisterEvent("PLAYER_REGEN_ENABLED")
 events:RegisterEvent("PLAYER_LEVEL_UP")
 events:RegisterEvent("UNIT_INVENTORY_CHANGED")
 events:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+events:RegisterEvent("ZONE_CHANGED_NEW_AREA") -- Betreten/Verlassen von Instanzen
 
 local ready = false -- erst nach dem Laden des Gepäcks zählen, sonst gäbe es Fehlalarm
 

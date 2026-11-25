@@ -19,6 +19,10 @@ Weitere Alarme (Seelensplitter, Reagenzien, Essen, Verbände …) legst du mit *
 
 Warnen mehrere Alarme gleichzeitig, stehen ihre Texte untereinander.
 
+Im Kampf und in Dungeons, Raids, Schlachtfeldern und Arenen bleibt der Alarm still – weder Text
+noch Sound. Beides lässt sich auf der Hauptseite der Optionen (oder mit `/ka combat` und
+`/ka instanz`) einschalten.
+
 ## Sounds
 
 Die Sounds liegen nach Gruppen in Unterordnern von `Sounds/`:
@@ -70,6 +74,7 @@ Das Addon bringt selbst keine Bibliotheken mit und läuft ohne sie mit eigenem K
 | `/ka reset` | Position zurücksetzen |
 | `/ka sound` | Sound an/aus |
 | `/ka combat` | Anzeige im Kampf an/aus |
+| `/ka instanz` | Anzeige in Dungeons, Raids und Schlachtfeldern an/aus |
 | `/ka minimap` | Minimap-Knopf an/aus |
 | `/ka status` | Stand aller Alarme |
 
