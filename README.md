@@ -31,8 +31,8 @@ oder verlinken.
 
 ## Eigene Sounds
 
-`.ogg`- oder `.mp3`-Datei in den Ordner `Sounds` legen und den Dateinamen in
-[Sounds.lua](Sounds.lua) eintragen. Danach WoW komplett neu starten, `/reload` reicht für neue
-Dateien nicht.
+`.ogg`- oder `.mp3`-Dateien in den Ordner `Sounds` legen und `tools/update-sounds.sh` ausführen.
+Das Skript trägt alle Dateien aus dem Ordner in [Sounds.lua](Sounds.lua) ein. Danach WoW komplett
+neu starten, `/reload` reicht für neue Dateien nicht.
 
 Die mitgelieferten Sounds sind mit `tools/make-sounds.sh` (ffmpeg) erzeugt.
