@@ -8,10 +8,10 @@ count=0
 
 {
 	cat <<'EOF'
--- Sounds, aus denen bei aktiver Warnung zufällig einer abgespielt wird.
+-- Sounds, die bei aktiver Warnung abgespielt werden (Auswahl in den Optionen).
 --
--- Diese Datei wird von tools/update-sounds.sh erzeugt: .ogg- oder .mp3-Datei in
--- den Ordner "Sounds" legen, Skript ausführen, WoW komplett neu starten (neue
+-- Diese Datei wird von tools/update-sounds.sh erzeugt: Audiodatei in den Ordner
+-- "Sounds" legen, tools/normalize-sounds.sh ausführen, WoW komplett neu starten (neue
 -- Dateien erkennt das Spiel nicht per /reload).
 --
 -- Eine Zahl statt eines Dateinamens ist ein Sound aus dem Spiel (SoundKit-ID).
@@ -25,7 +25,7 @@ EOF
 		printf '\t"%s",\n' "$escaped"
 		count=$((count + 1))
 	done < <(find "$root/Sounds" -maxdepth 1 -type f \( -iname '*.ogg' -o -iname '*.mp3' \) -printf '%f\n' | LC_ALL=C sort)
-	printf '\t416, -- Murloc-Gurgeln\n}\n'
+	printf '\t416, -- Murloc-Gurgeln (aus dem Spiel)\n}\n'
 } > "$root/Sounds.lua.tmp"
 
 mv "$root/Sounds.lua.tmp" "$root/Sounds.lua"

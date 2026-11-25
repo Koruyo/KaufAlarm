@@ -88,7 +88,11 @@ local function Slider(page, label, x, y, minimum, maximum, step, suffix, get, se
 	local caption = page:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
 	caption:SetPoint("BOTTOMLEFT", slider, "TOPLEFT", 0, 4)
 	slider.caption = caption
-	local function show(value) caption:SetText(label .. ": " .. value .. (suffix or "")) end
+	local function show(value)
+		-- 13.25 -> "13,25", 60 -> "60"
+		local text = (("%.2f"):format(value):gsub("0+$", ""):gsub("%.$", ""):gsub("%.", ","))
+		caption:SetText(label .. ": " .. text .. (suffix or ""))
+	end
 
 	slider:SetScript("OnValueChanged", function(self, value)
 		if self.refreshing then return end
@@ -266,7 +270,7 @@ local function BuildMain()
 	Header(page, "Sound", -325)
 	Check(page, "Sound abspielen, solange die Warnung sichtbar ist", 18, -343,
 		function() return db.sound end, function(v) db.sound = v end)
-	Slider(page, "Wiederholen alle", 22, -395, 10, 300, 10, " Sekunden",
+	Slider(page, "Wiederholen alle", 22, -395, 5, 300, 0.25, " Sekunden",
 		function() return db.soundInterval end, function(v) db.soundInterval = v end)
 	Button(page, "Nächsten Sound spielen", 312, -391, 200, function()
 		if not ns.PlayNextSound() then ns.Print("Kein Sound angehakt (Seite \"Sounds\").") end

@@ -22,9 +22,12 @@ Warnen mehrere Alarme gleichzeitig, stehen ihre Texte untereinander.
 ## Sounds
 
 Solange eine Warnung sichtbar ist, spielt ein Sound sofort und dann in der eingestellten
-Wiederholrate (10–300 Sekunden). Auf der Seite *Sounds* hakst du an, welche Sounds dabei sind,
+Wiederholrate (5–300 Sekunden, voreingestellt 13,25 – so lang wie der längste Clip). Auf der Seite *Sounds* hakst du an, welche Sounds dabei sind,
 und kannst jeden probehören. Auf der Hauptseite wählst du die Reihenfolge (zufällig oder der
 Reihe nach) und den Lautstärke-Regler (Gesamt, Effekte, Dialog, Umgebung, Musik).
+
+Die Meme-Clips sind nicht im Git, nur ihre Einträge in Sounds.lua. Fehlt eine Datei, gurgelt
+stattdessen ein Murloc.
 
 Eigene Sounds: `.mp3`-, `.wav`- oder andere Audiodateien in den Ordner `Sounds` legen und
 `tools/normalize-sounds.sh` ausführen. Das Skript gleicht die Lautstärke an (−16 LUFS, damit
@@ -74,5 +77,4 @@ luajit tests/mocktest.lua
 Prüft Logik und Optionen mit einer nachgebauten WoW-API, einmal ohne und einmal mit
 Broker-Bibliotheken, dazu die Übernahme der Einstellungen aus Version 1.x.
 
-Die mitgelieferten Sounds sind mit `tools/make-sounds.sh` (ffmpeg) erzeugt und angeglichen, das Icon
-mit `tools/make-icon.sh` aus [Media/icon.svg](Media/icon.svg).
+Das Icon wird mit `tools/make-icon.sh` aus [Media/icon.svg](Media/icon.svg) erzeugt.
