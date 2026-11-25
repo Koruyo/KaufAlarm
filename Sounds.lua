@@ -11,9 +11,27 @@ local _, ns = ...
 
 ns.sounds = {
 	["Allgemein"] = {
+		"brr-brr-patapim-alarm-clock.ogg",
+		"danger-alarm-sound-effect-meme.ogg",
+		"emergency-alert-us-2.ogg",
+		"miku-alarm.ogg",
+		"nuclear-alarm-siren.ogg",
+		"sound-the-alarm.ogg",
+		"wake-tf-up.ogg",
 		416, -- Murloc-Gurgeln (aus dem Spiel)
 	},
 	["Munition"] = {
+		"cod-waw-zombies-max-ammo-sound_XHA7lsW.ogg",
+		"i-need-more-bullets.ogg",
+		"i-need-to-find-some-ammunition.ogg",
+		"if-your-running-low-on-ammo.ogg",
+		"jokerammo.ogg",
+		"no-ammo.ogg",
+		"reload-gun-sound_CpHCnmK.ogg",
+		"scorch-ammo-exhausted.ogg",
+		"shooting-a-lot-of-ammo.ogg",
+		"solidhornetamc_ability_4c.ogg",
+		"tachankaout.ogg",
 	},
 	["Wasser"] = {
 		"coconut-water-song-meme-mp3.ogg",
