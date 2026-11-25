@@ -10,7 +10,7 @@ Jeder Alarm zählt eine Liste von Items zusammen und warnt unter seiner Grenze. 
 | Alarm | zählt | Grenze | für |
 | --- | --- | --- | --- |
 | Wasser | Trichterwindentau (8766), Kristallwasser (8079), Sprudelwasser (8078) | 40 | Klassen mit Mana ab Stufe 45 |
-| Munition | die ausgerüstete Munition, egal welche Sorte | 1000 | Jäger ab Stufe 10 |
+| Munition | die ausgerüstete Munition, egal welche Sorte | 600 | Jäger ab Stufe 10 |
 
 In den Optionen unter *Alarme* lässt sich für jeden Alarm einstellen: an/aus, Name, Warntext,
 Grenze, Mindeststufe, „nur Klassen mit Mana“, „ausgerüstete Munition mitzählen“, Klassenauswahl

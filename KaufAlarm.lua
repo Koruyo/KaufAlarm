@@ -33,7 +33,7 @@ local function DefaultWatches()
 			name = "Munition",
 			enabled = true,
 			text = "KAUF MUNITION DU HUANSOHN!",
-			threshold = 1000,
+			threshold = 600,
 			minLevel = 10,
 			ammo = true, -- zählt die ausgerüstete Munition, egal welche Sorte
 			classes = { HUNTER = true },
@@ -119,6 +119,14 @@ local function SetupDB()
 			watch.soundGroup = watch.ammo and "Munition" or watch.name == "Wasser" and "Wasser" or "Allgemein"
 		end
 	end
+	-- Einmalig: die alte Munitions-Grenze 1000 wird zur neuen Voreinstellung 600.
+	-- Selbst eingestellte Werte bleiben.
+	if (tonumber(db.schema) or 1) < 2 then
+		for _, watch in ipairs(db.watches) do
+			if watch.ammo and watch.threshold == 1000 then watch.threshold = 600 end
+		end
+	end
+	db.schema = 2
 end
 
 --------------------------------------------------------------------------------

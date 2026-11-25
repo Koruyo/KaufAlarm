@@ -203,7 +203,7 @@ local function run(withBroker)
 		class = "HUNTER"; ammo = { 18042, 300 }; fire("BAG_UPDATE_DELAYED")
 		check(obj.text == "50 · |cffff3333300|r", "Broker beim Jäger: Wasser und Munition, Munition rot")
 		local tip = widget(); obj.OnTooltipShow(tip)
-		check(table.concat(tip.lines, "|"):find("Munition 300 / 1000", 1, true), "Broker-Tooltip zeigt den Stand")
+		check(table.concat(tip.lines, "|"):find("Munition 300 / 600", 1, true), "Broker-Tooltip zeigt den Stand")
 		class = "SHAMAN"; fire("BAG_UPDATE_DELAYED")
 		check(iconRegistered and iconRegistered.settings == KaufAlarmDB.minimap, "Knopf läuft über LibDBIcon")
 		check(button == nil, "kein eigener Knopf neben LibDBIcon")
@@ -294,7 +294,7 @@ local function run(withBroker)
 		if f.txt == "Entfernen" and f.parent.id == 8079 and f.parent.shown then click(f); removed = true break end
 	end
 	check(removed and not KaufAlarmDB.watches[1].items[8079], "Item lässt sich entfernen")
-	click(find(alarms, ">")); check(find(alarms, "Warnen unter").txt == "1000", "zweiter Alarm: Munition")
+	click(find(alarms, ">")); check(find(alarms, "Warnen unter").txt == "600", "zweiter Alarm: Munition")
 	click(find(alarms, "Neuer Alarm"))
 	check(#KaufAlarmDB.watches == 3, "neuer Alarm angelegt")
 	local soundsButton = find(alarms, "Sounds: Allgemein")
@@ -370,5 +370,32 @@ do
 	assert(water.soundGroup == "Wasser" and KaufAlarmDB.watches[2].soundGroup == "Munition", "Sound-Gruppen der Standard-Alarme")
 	assert(type(ns.sounds.Allgemein) == "table" and ns.sounds.Allgemein[#ns.sounds.Allgemein] == 416, "echte Sounds.lua hat Gruppen")
 	print("ok   Migration aus Version 1.x")
+end
+
+-- Migration: alte Munitions-Voreinstellung 1000 wird 600, eigene Werte bleiben
+do
+	KaufAlarmDB = { watches = {
+		{ name = "Munition", ammo = true, threshold = 1000, items = {} },
+		{ name = "Pfeile Zweitchar", ammo = true, threshold = 800, items = {} },
+	} }
+	local ns = {}
+	local events
+	local orig = CreateFrame
+	CreateFrame = function(kind, name, parent)
+		local f = orig(kind, name, parent)
+		if kind == "Frame" and not name and not parent then events = f end
+		return f
+	end
+	for _, file in ipairs({ "Sounds.lua", "Minimap.lua", "KaufAlarm.lua", "Options.lua" }) do
+		assert(loadfile(dir .. "/" .. file))("KaufAlarm", ns)
+	end
+	CreateFrame = orig
+	events.scripts.OnEvent(events, "ADDON_LOADED", "KaufAlarm")
+	assert(KaufAlarmDB.watches[1].threshold == 600, "1000 -> 600")
+	assert(KaufAlarmDB.watches[2].threshold == 800, "eigener Wert bleibt")
+	KaufAlarmDB.watches[1].threshold = 1000 -- danach selbst wieder auf 1000 gestellt
+	events.scripts.OnEvent(events, "ADDON_LOADED", "KaufAlarm")
+	assert(KaufAlarmDB.watches[1].threshold == 1000, "Umstellung nur einmal")
+	print("ok   Munitions-Grenze 1000 -> 600")
 end
 print("alle Checks ok")
