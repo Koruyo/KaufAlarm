@@ -21,20 +21,33 @@ Warnen mehrere Alarme gleichzeitig, stehen ihre Texte untereinander.
 
 ## Sounds
 
+Die Sounds liegen nach Gruppen in Unterordnern von `Sounds/`:
+
+| Ordner | gehört zu |
+| --- | --- |
+| `Sounds/Wasser/` | Alarm *Wasser* |
+| `Sounds/Munition/` | Alarm *Munition* |
+| `Sounds/Allgemein/` | neuen Alarmen; springt ein, wenn eine Gruppe leer ist (enthält den Murloc aus dem Spiel) |
+
+Jeder Alarm wählt seine Gruppe in den Optionen (*Alarme → Sounds: …*). Ein neuer Unterordner
+wird automatisch zu einer weiteren Gruppe.
+
 Solange eine Warnung sichtbar ist, spielt ein Sound sofort und dann in der eingestellten
-Wiederholrate (5–300 Sekunden, voreingestellt 13,25 – so lang wie der längste Clip). Auf der Seite *Sounds* hakst du an, welche Sounds dabei sind,
-und kannst jeden probehören. Auf der Hauptseite wählst du die Reihenfolge (zufällig oder der
-Reihe nach) und den Lautstärke-Regler (Gesamt, Effekte, Dialog, Umgebung, Musik).
+Wiederholrate (5–300 Sekunden, voreingestellt 13,25 – so lang wie der längste Clip). Warnen
+mehrere Alarme gleichzeitig, kommen ihre Sounds abwechselnd. Auf der Seite *Sounds* hakst du je
+Gruppe an, welche Sounds dabei sind, und kannst jeden probehören. Auf der Hauptseite wählst du
+die Reihenfolge (zufällig oder der Reihe nach) und den Lautstärke-Regler (Gesamt, Effekte,
+Dialog, Umgebung, Musik).
 
 Die Meme-Clips sind nicht im Git, nur ihre Einträge in Sounds.lua. Fehlt eine Datei, gurgelt
 stattdessen ein Murloc.
 
-Eigene Sounds: `.mp3`-, `.wav`- oder andere Audiodateien in den Ordner `Sounds` legen und
-`tools/normalize-sounds.sh` ausführen. Das Skript gleicht die Lautstärke an (−16 LUFS, damit
+Neue Sounds: `.mp3`-, `.wav`- oder andere Audiodateien in den passenden Gruppen-Ordner legen
+und `tools/normalize-sounds.sh` ausführen. Das Skript gleicht die Lautstärke an (−16 LUFS, damit
 kein Clip viel lauter oder leiser ist als die anderen), speichert sie als `.ogg`, legt die
-Originale nach `Sounds/original/` und trägt alles in [Sounds.lua](Sounds.lua) ein. Danach WoW
-komplett neu starten, `/reload` reicht für neue Dateien nicht. Neue Sounds sind automatisch
-angehakt.
+Originale nach `Sounds/original/<Gruppe>/` und trägt alles in [Sounds.lua](Sounds.lua) ein.
+Danach WoW komplett neu starten, `/reload` reicht für neue Dateien nicht. Neue Sounds sind
+automatisch angehakt.
 
 ## Minimap, Broker-Leisten und Addon-Fach
 

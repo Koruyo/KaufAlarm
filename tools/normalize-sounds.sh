@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Gleicht die Lautstärke der Sounds an und speichert sie als .ogg.
 #
-#   normalize-sounds.sh          jede .mp3/.wav/.flac/.m4a/.opus-Datei im Ordner
-#                                "Sounds" angleichen; die .ogg ersetzt sie, das
-#                                Original wandert nach Sounds/original/ (wird vom
-#                                Spiel nicht geladen)
+#   normalize-sounds.sh          jede .mp3/.wav/.flac/.m4a/.opus-Datei in den
+#                                Gruppen-Ordnern (Sounds/Wasser, Sounds/Munition,
+#                                Sounds/Allgemein, …) angleichen; die .ogg ersetzt
+#                                sie, das Original wandert nach
+#                                Sounds/original/<Gruppe>/ (wird nicht geladen).
+#                                Dateien direkt in Sounds/ landen in "Allgemein".
 #   normalize-sounds.sh --all    dazu auch alle vorhandenen .ogg neu angleichen
-#   normalize-sounds.sh DATEI…   genau diese Dateien als Sounds/<name>.ogg ablegen
 #
 # Zum Schluss wird Sounds.lua neu erzeugt. Braucht ffmpeg.
 # Ziel: -16 LUFS Lautheit, Spitzen höchstens -1.5 dBTP.
@@ -19,6 +20,8 @@ TARGET_LRA=11
 root="$(cd "$(dirname "$0")/.." && pwd)"
 sounds="$root/Sounds"
 originals="$sounds/original"
+all=false
+[[ "${1:-}" == "--all" ]] && all=true
 
 # Gemessene Lautheit (LUFS) einer Datei
 loudness() {
@@ -47,7 +50,7 @@ normalize() {
 	result=$(loudness "$out")
 
 	# 2. Bei sehr kurzen, spitzen Clips trifft loudnorm das Ziel nicht:
-	#    dann Verstärkung plus Limiter, einmal nachgemessen und korrigiert.
+	#    dann Verstärkung plus Limiter, nachgemessen und korrigiert.
 	if awk -v r="$result" -v t="$TARGET_I" 'BEGIN { d = r - t; exit !(d > 1 || d < -1) }'; then
 		local limit gain
 		limit=$(awk -v tp="$TARGET_TP" 'BEGIN { printf "%.4f", 10 ^ (tp / 20) }')
@@ -59,42 +62,42 @@ normalize() {
 			awk -v r="$result" -v t="$TARGET_I" 'BEGIN { d = r - t; exit !(d > 0.7 || d < -0.7) }' || break
 		done
 	fi
-	printf '%-58s %7s LUFS -> %6s LUFS\n' "$(basename "$out")" "$mi" "$result"
+	printf '%-58s %7s LUFS -> %6s LUFS\n' "$(basename "$(dirname "$out")")/$(basename "$out")" "$mi" "$result"
 }
 
 shopt -s nullglob nocaseglob
-count=0
+mkdir -p "$sounds/Allgemein"
 
-if [[ $# -gt 0 && "$1" != "--all" ]]; then
-	for file in "$@"; do
-		name="$(basename "$file")"
-		normalize "$file" "$sounds/${name%.*}.ogg"
-		count=$((count + 1))
-	done
-else
-	all=false
-	[[ "${1:-}" == "--all" ]] && all=true
-	for file in "$sounds"/*.{mp3,wav,flac,m4a,opus,ogg}; do
+# Lose Dateien direkt in Sounds/ gehören zu "Allgemein".
+for file in "$sounds"/*.{mp3,wav,flac,m4a,opus,ogg}; do
+	mv -n "$file" "$sounds/Allgemein/"
+done
+
+count=0
+for dir in "$sounds"/*/; do
+	group="$(basename "$dir")"
+	[[ "$group" == "original" ]] && continue
+	for file in "$dir"*.{mp3,wav,flac,m4a,opus,ogg}; do
 		name="$(basename "$file")"
 		base="${name%.*}"
 		ext="${name##*.}"
 		if [[ "${ext,,}" == "ogg" ]]; then
 			$all || continue
-			tmp="$sounds/.$base.tmp.ogg"
+			tmp="$dir.$base.tmp.ogg"
 			normalize "$file" "$tmp"
 			mv "$tmp" "$file"
 		else
-			if [[ -e "$sounds/$base.ogg" ]]; then
-				echo "Übersprungen: $base.ogg gibt es schon (Original $name bleibt liegen)" >&2
+			if [[ -e "$dir$base.ogg" ]]; then
+				echo "Übersprungen: $group/$base.ogg gibt es schon (Original $name bleibt liegen)" >&2
 				continue
 			fi
-			normalize "$file" "$sounds/$base.ogg"
-			mkdir -p "$originals"
-			mv "$file" "$originals/$name"
+			normalize "$file" "$dir$base.ogg"
+			mkdir -p "$originals/$group"
+			mv "$file" "$originals/$group/$name"
 		fi
 		count=$((count + 1))
 	done
-fi
+done
 
 echo "$count Sounds angeglichen."
 "$root/tools/update-sounds.sh"

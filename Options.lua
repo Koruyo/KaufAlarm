@@ -356,6 +356,15 @@ local function BuildAlarms()
 		function() return Watch().name end, function(v) Watch().name = v end)
 	Edit(page, "Warntext", 214, -135, 330, false,
 		function() return Watch().text end, function(v) Watch().text = v end)
+	Cycle(page, 420, -86, 150,
+		function() return "Sounds: " .. Watch().soundGroup end,
+		function()
+			local groups, next = ns.SoundGroups(), 1
+			for i, group in ipairs(groups) do
+				if group == Watch().soundGroup then next = i % #groups + 1 end
+			end
+			Watch().soundGroup = groups[next]
+		end)
 	Cycle(page, 214, -86, 200,
 		function() return "Textfarbe: " .. ns.WatchColor(Watch()).name end,
 		function()
@@ -495,43 +504,70 @@ end
 
 local function BuildSounds()
 	local page = NewPage("KaufAlarmOptionenSounds", "Sounds",
-		"Angehakte Sounds werden abgespielt (zufällig oder der Reihe nach, siehe Hauptseite). "
-		.. "Eigene Sounds: Dateien in den Ordner Sounds legen, tools/update-sounds.sh ausführen, WoW neu starten.")
+		"Jeder Alarm spielt die Sounds seiner Gruppe (Seite \"Alarme\"), angehakte zufällig oder der Reihe nach. "
+		.. "Ist eine Gruppe leer, kommt \"Allgemein\" dran. Eigene Sounds: Datei in Sounds/<Gruppe>/ legen, "
+		.. "tools/normalize-sounds.sh ausführen, WoW neu starten.")
 	page.name = "Sounds"
 	page.parent = "KaufAlarm"
 
-	local function setAll(value)
-		for _, entry in ipairs(ns.sounds or {}) do ns.SetSoundEnabled(entry, value) end
+	local function setAll(group, value)
+		for _, g in ipairs(ns.SoundGroups()) do
+			if not group or g == group then
+				for _, entry in ipairs(ns.GroupSounds(g)) do ns.SetSoundEnabled(g, entry, value) end
+			end
+		end
 		Changed()
 	end
-	Button(page, "Alle an", 18, -70, 110, function() setAll(true) end)
-	Button(page, "Alle aus", 134, -70, 110, function() setAll(false) end)
-	Button(page, "Nächsten Sound spielen", 250, -70, 200, function()
-		if not ns.PlayNextSound() then ns.Print("Kein Sound angehakt.") end
-	end)
+	Button(page, "Alle an", 18, -84, 110, function() setAll(nil, true) end)
+	Button(page, "Alle aus", 134, -84, 110, function() setAll(nil, false) end)
 
-	local list = ScrollList(page, "KaufAlarmSoundListe", -104, 440)
-	for i, entry in ipairs(ns.sounds or {}) do
-		local row = CreateFrame("Frame", nil, list)
-		row:SetSize(530, 26)
-		row:SetPoint("TOPLEFT", list, "TOPLEFT", 0, -(i - 1) * 26)
-		local box = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-		box:SetPoint("LEFT", 0, 0)
-		box:SetSize(24, 24)
-		box:SetScript("OnClick", function(self)
-			ns.SetSoundEnabled(entry, self:GetChecked() and true or false)
-			Changed()
+	local list = ScrollList(page, "KaufAlarmSoundListe", -116, 430)
+	local y = 0
+	for _, group in ipairs(ns.SoundGroups()) do
+		local sounds = ns.GroupSounds(group)
+		local header = CreateFrame("Frame", nil, list)
+		header:SetSize(530, 28)
+		header:SetPoint("TOPLEFT", list, "TOPLEFT", 0, y)
+		local title = header:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+		title:SetPoint("LEFT", 2, 0)
+		title:SetText(("%s  |cff999999(%d)|r"):format(group, #sounds))
+		Button(header, "an", 200, -2, 50, function() setAll(group, true) end)
+		Button(header, "aus", 254, -2, 50, function() setAll(group, false) end)
+		Button(header, "Nächsten spielen", 380, -2, 145, function()
+			if not ns.PlayNextSound(group) then ns.Print("Kein Sound angehakt.") end
 		end)
-		box.Refresh = function(self) self:SetChecked(ns.IsSoundEnabled(entry)) end
-		Register(page, box)
-		local label = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-		label:SetPoint("LEFT", box, "RIGHT", 4, 0)
-		label:SetWidth(380)
-		label:SetJustifyH("LEFT")
-		label:SetText(ns.SoundLabel(entry))
-		Button(row, "Abspielen", 440, -1, 85, function() ns.PlayEntry(entry) end)
+		y = y - 30
+		if #sounds == 0 then
+			local empty = list:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+			empty:SetPoint("TOPLEFT", list, "TOPLEFT", 28, y - 4)
+			empty:SetText("Leer, hier spielt \"Allgemein\". Dateien nach Sounds/" .. group .. "/ legen.")
+			y = y - 22
+		end
+		for _, entry in ipairs(sounds) do
+			local row = CreateFrame("Frame", nil, list)
+			row:SetSize(530, 26)
+			row:SetPoint("TOPLEFT", list, "TOPLEFT", 0, y)
+			local box = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+			box:SetPoint("LEFT", 16, 0)
+			box:SetSize(24, 24)
+			box:SetScript("OnClick", function(self)
+				ns.SetSoundEnabled(group, entry, self:GetChecked() and true or false)
+				Changed()
+			end)
+			box.Refresh = function(self) self:SetChecked(ns.IsSoundEnabled(group, entry)) end
+			box.sound = group .. "/" .. tostring(entry)
+			Register(page, box)
+			local label = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+			label:SetPoint("LEFT", box, "RIGHT", 4, 0)
+			label:SetWidth(370)
+			label:SetJustifyH("LEFT")
+			label:SetText(ns.SoundLabel(entry))
+			Button(row, "Abspielen", 440, -1, 85, function() ns.PlayEntry(group, entry) end)
+			y = y - 26
+		end
+		y = y - 8
 	end
-	list:SetHeight(math.max(1, #(ns.sounds or {}) * 26))
+	list:SetHeight(math.max(1, -y))
 	return page
 end
 

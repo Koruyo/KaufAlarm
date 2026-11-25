@@ -22,6 +22,7 @@ local function DefaultWatches()
 			threshold = 40,
 			minLevel = 45, -- Trichterwindentau ist erst ab Stufe 45 trinkbar
 			manaOnly = true,
+			soundGroup = "Wasser",
 			items = {
 				[8766] = true, -- Trichterwindentau (Morning Glory Dew)
 				[8079] = true, -- Herbeigezaubertes Kristallwasser (Magier, Rang 7)
@@ -36,13 +37,22 @@ local function DefaultWatches()
 			minLevel = 10,
 			ammo = true, -- zählt die ausgerüstete Munition, egal welche Sorte
 			classes = { HUNTER = true },
+			soundGroup = "Munition",
 			items = {},
 		},
 	}
 end
 
 function ns.NewWatch()
-	return { name = "Neuer Alarm", enabled = true, text = "KAUF NACHSCHUB DU HUANSOHN!", threshold = 20, minLevel = 1, items = {} }
+	return {
+		name = "Neuer Alarm",
+		enabled = true,
+		text = "KAUF NACHSCHUB DU HUANSOHN!",
+		threshold = 20,
+		minLevel = 1,
+		soundGroup = "Allgemein",
+		items = {},
+	}
 end
 
 local DEFAULTS = {
@@ -68,7 +78,9 @@ local testMode = false
 local unlocked = false
 local alarmActive = false
 local lastSound = -math.huge
-local lastSoundIndex
+local lastSoundIndex = {} -- je Gruppe
+local lowActive = {} -- Alarme, die gerade warnen
+local soundTurn = 0 -- reihum zwischen mehreren warnenden Alarmen
 
 local function Print(msg)
 	DEFAULT_CHAT_FRAME:AddMessage(PREFIX .. msg)
@@ -102,6 +114,9 @@ local function SetupDB()
 		watch.items = type(watch.items) == "table" and watch.items or {}
 		watch.threshold = tonumber(watch.threshold) or 1
 		watch.minLevel = tonumber(watch.minLevel) or 1
+		if type(watch.soundGroup) ~= "string" then
+			watch.soundGroup = watch.ammo and "Munition" or watch.name == "Wasser" and "Wasser" or "Allgemein"
+		end
 	end
 end
 
@@ -151,60 +166,94 @@ ns.CHANNELS = { "Master", "SFX", "Dialog", "Ambience", "Music" }
 ns.CHANNEL_NAMES = { Master = "Gesamt", SFX = "Effekte", Dialog = "Dialog", Ambience = "Umgebung", Music = "Musik" }
 ns.ORDER_NAMES = { random = "zufällig", sequence = "der Reihe nach" }
 
-local function SoundKey(entry)
-	return tostring(entry)
+-- Sound-Gruppen sind die Unterordner von "Sounds" (siehe Sounds.lua).
+-- "Allgemein" steht vorn und springt ein, wenn eine Gruppe leer ist.
+local GENERAL = "Allgemein"
+ns.GENERAL = GENERAL
+
+function ns.SoundGroups()
+	local groups = {}
+	for group in pairs(ns.sounds or {}) do
+		if group ~= GENERAL then groups[#groups + 1] = group end
+	end
+	table.sort(groups)
+	table.insert(groups, 1, GENERAL)
+	return groups
+end
+
+function ns.GroupSounds(group)
+	return (ns.sounds or {})[group] or {}
+end
+
+local function SoundKey(group, entry)
+	return group .. "/" .. tostring(entry)
 end
 
 function ns.SoundLabel(entry)
 	if type(entry) == "number" then
-		return entry == 416 and "Murloc-Gurgeln (aus dem Spiel)" or ("Spiel-Sound " .. entry)
+		return entry == FALLBACK_SOUND and "Murloc-Gurgeln (aus dem Spiel)" or ("Spiel-Sound " .. entry)
 	end
 	return (entry:gsub("%.[^.]+$", ""):gsub("[-_]+", " "))
 end
 
-function ns.IsSoundEnabled(entry)
-	return not db.disabledSounds[SoundKey(entry)]
+function ns.IsSoundEnabled(group, entry)
+	return not db.disabledSounds[SoundKey(group, entry)]
 end
 
-function ns.SetSoundEnabled(entry, enabled)
-	db.disabledSounds[SoundKey(entry)] = (not enabled) or nil
+function ns.SetSoundEnabled(group, entry, enabled)
+	db.disabledSounds[SoundKey(group, entry)] = (not enabled) or nil
 end
 
-local function PlayEntry(entry)
+local function PlayEntry(group, entry)
 	local channel = db.soundChannel
 	if type(entry) == "number" then
 		PlaySound(entry, channel)
-	elseif not PlaySoundFile(SOUND_PATH .. entry, channel) then
+	elseif not PlaySoundFile(SOUND_PATH .. group .. "\\" .. entry, channel) then
 		PlaySound(FALLBACK_SOUND, channel)
 	end
 end
 ns.PlayEntry = PlayEntry
 
--- Spielt einen der angehakten Sounds, zufällig oder der Reihe nach.
--- Gibt false zurück, wenn kein Sound angehakt ist.
-local function PlayNextSound()
+-- Gruppe des ersten warnenden Alarms, sonst des ersten aktiven, sonst "Allgemein".
+local function DefaultGroup()
+	if lowActive[1] then return lowActive[1].watch.soundGroup end
+	for _, watch in ipairs(db.watches) do
+		if ns.IsWatchEligible(watch) then return watch.soundGroup end
+	end
+	return GENERAL
+end
+
+-- Spielt einen der angehakten Sounds der Gruppe, zufällig oder der Reihe nach.
+-- Ist in der Gruppe nichts angehakt, kommt ein Sound aus "Allgemein".
+-- Gibt false zurück, wenn auch dort nichts angehakt ist.
+local function PlayNextSound(group)
 	lastSound = GetTime()
+	group = group or DefaultGroup()
+	local list = ns.GroupSounds(group)
 	local pool = {}
-	for index, entry in ipairs(ns.sounds or {}) do
-		if ns.IsSoundEnabled(entry) then pool[#pool + 1] = index end
+	for index, entry in ipairs(list) do
+		if ns.IsSoundEnabled(group, entry) then pool[#pool + 1] = index end
 	end
 	local n = #pool
-	if n == 0 then return false end
+	if n == 0 then
+		if group ~= GENERAL then return PlayNextSound(GENERAL) end
+		return false
+	end
 
-	local pick
+	local last, pick = lastSoundIndex[group], nil
 	if db.soundOrder == "sequence" then
 		pick = 1
 		for i, index in ipairs(pool) do
-			if lastSoundIndex and index > lastSoundIndex then pick = i break end
+			if last and index > last then pick = i break end
 		end
 	else
 		pick = math.random(n)
-		if n > 1 and pool[pick] == lastSoundIndex then
+		if n > 1 and pool[pick] == last then
 			pick = pick % n + 1 -- nie zweimal hintereinander derselbe
 		end
 	end
-	lastSoundIndex = pool[pick]
-	PlayEntry(ns.sounds[lastSoundIndex])
+	lastSoundIndex[group] = pool[pick]
+	PlayEntry(group, list[pool[pick]])
 	return true
 end
 ns.PlayNextSound = PlayNextSound
@@ -255,7 +304,10 @@ warn:SetScript("OnHide", function() pulse:Stop() end)
 -- Läuft nur, solange die Warnung sichtbar ist.
 warn:SetScript("OnUpdate", function()
 	if alarmActive and db.sound and GetTime() - lastSound >= db.soundInterval then
-		PlayNextSound()
+		-- Warnen mehrere Alarme, kommen ihre Sounds abwechselnd.
+		soundTurn = soundTurn % math.max(1, #lowActive) + 1
+		local entry = lowActive[soundTurn]
+		PlayNextSound(entry and entry.watch.soundGroup)
 	end
 end)
 
@@ -337,8 +389,10 @@ local function Update()
 		if entry.low then low[#low + 1] = entry end
 	end
 	alarmActive = #low > 0 and (db.showInCombat or not inCombat)
+	lowActive = alarmActive and low or {}
 
-	local shown = alarmActive and low or {}
+	local shown = {}
+	for i, entry in ipairs(lowActive) do shown[i] = entry end
 	if (testMode or unlocked) and #shown == 0 then
 		for _, entry in ipairs(status) do
 			if entry.watch.enabled then shown[#shown + 1] = entry end

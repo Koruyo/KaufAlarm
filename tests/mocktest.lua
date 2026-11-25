@@ -105,9 +105,19 @@ local function run(withBroker)
 		LibStub = nil
 	end
 
-	local ns = {}
-	for _, file in ipairs({ "Sounds.lua", "Minimap.lua", "KaufAlarm.lua", "Options.lua" }) do
+	-- feste Beispiel-Sounds statt Sounds.lua, damit der Test nicht vom Ordnerinhalt abhängt
+	local ns = { sounds = {
+		Allgemein = { "a1.ogg", "a2.ogg", 416 },
+		Munition = { "m1.ogg", "m2.ogg" },
+		Wasser = { "w1.ogg", "w2.ogg", "w3.ogg", "w4.ogg" },
+	} }
+	for _, file in ipairs({ "Minimap.lua", "KaufAlarm.lua", "Options.lua" }) do
 		assert(loadfile(dir .. "/" .. file))("KaufAlarm", ns)
+	end
+	local function group(i) -- Gruppe des i-ten gespielten Sounds
+		local p = played[i]
+		if type(p) == "number" then return "Spiel" end
+		return p:match("\\Sounds\\([^\\]+)\\")
 	end
 
 	local ev
@@ -148,6 +158,7 @@ local function run(withBroker)
 	check(#played == 1 and channels[1] == "Master", "Sound sofort beim Erscheinen")
 	now = now + 13; tick(); check(#played == 1, "nach 13 s noch kein zweiter Sound")
 	now = now + 0.25; tick(); check(#played == 2 and played[1] ~= played[2], "nach 13,25 s anderer Sound")
+	check(group(1) == "Wasser" and group(2) == "Wasser", "Wasser-Alarm spielt Wasser-Sounds")
 	items[8766] = 20; items[8079] = 20; fire("BAG_UPDATE_DELAYED")
 	check(not warn.shown, "20 Tau + 20 Magierwasser = 40 -> keine Warnung")
 	fire("PLAYER_REGEN_DISABLED"); items[8079] = 0; fire("BAG_UPDATE_DELAYED")
@@ -158,10 +169,16 @@ local function run(withBroker)
 	check(not warnText():find("MUNITION"), "Schamane bekommt keine Munitions-Warnung")
 	class = "HUNTER"; ammo = { 18042, 400 }; fire("UNIT_INVENTORY_CHANGED", "player")
 	check(warnText() == "KAUF WASSER DU HUANSOHN!|KAUF MUNITION DU HUANSOHN!", "Jäger mit 400 Pfeilen: beide Warnungen")
+	local before = #played
+	now = now + 14; tick(); now = now + 14; tick()
+	local g1, g2 = group(before + 1), group(before + 2)
+	check(#played == before + 2 and g1 ~= g2 and (g1 == "Wasser" or g1 == "Munition") and (g2 == "Wasser" or g2 == "Munition"),
+		"zwei Alarme: Wasser- und Munitions-Sounds abwechselnd")
 	ammo = { 18042, 1600 }; items[8766] = 50; fire("BAG_UPDATE_DELAYED")
 	check(not warn.shown, "Jäger mit 1600 Pfeilen und 50 Wasser: keine Warnung")
 	ammo = nil; fire("UNIT_INVENTORY_CHANGED", "player")
 	check(warnText() == "KAUF MUNITION DU HUANSOHN!", "keine Munition ausgerüstet -> Warnung")
+	now = now + 14; tick(); check(group(#played) == "Munition", "nur Munition warnt -> Munitions-Sound")
 	ammo = { 18042, 1600 }; class = "SHAMAN"; fire("BAG_UPDATE_DELAYED")
 
 	-- Minimap, Broker, Addon-Fach
@@ -220,17 +237,26 @@ local function run(withBroker)
 	local sounds = pages.sounds
 	sounds.shown = true; sounds.scripts.OnShow(sounds)
 	click(find(sounds, "Alle aus"))
-	check(not ns.PlayNextSound(), "alle Sounds aus -> nichts spielt")
-	for i, entry in ipairs(ns.sounds) do
-		if i == 2 or i == 4 then ns.SetSoundEnabled(entry, true) end
-	end
+	check(not ns.PlayNextSound("Wasser"), "alle Sounds aus -> nichts spielt, auch nicht Allgemein")
+	ns.SetSoundEnabled("Wasser", "w2.ogg", true); ns.SetSoundEnabled("Wasser", "w4.ogg", true)
 	local seq = {}
-	for _ = 1, 4 do ns.PlayNextSound(); seq[#seq + 1] = played[#played] end
-	local base = "Interface\\AddOns\\KaufAlarm\\Sounds\\"
-	local a, b = base .. ns.sounds[2], base .. ns.sounds[4]
+	for _ = 1, 4 do ns.PlayNextSound("Wasser"); seq[#seq + 1] = played[#played] end
+	local base = "Interface\\AddOns\\KaufAlarm\\Sounds\\Wasser\\"
+	local a, b = base .. "w2.ogg", base .. "w4.ogg"
 	check((seq[1] == a or seq[1] == b) and (seq[2] == a or seq[2] == b) and seq[1] ~= seq[2]
 		and seq[3] == seq[1] and seq[4] == seq[2], "der Reihe nach, nur angehakte Sounds, abwechselnd")
 	check(channels[#channels] == "SFX", "Sound läuft über den gewählten Regler")
+	ns.SetSoundEnabled("Allgemein", 416, true)
+	ns.PlayNextSound("Munition"); check(played[#played] == 416, "Gruppe ohne angehakte Sounds -> Allgemein")
+	ns.PlayNextSound("Gibtsnicht"); check(played[#played] == 416, "unbekannte Gruppe -> Allgemein")
+	local box
+	for _, f in ipairs(frames) do if f.sound == "Munition/m1.ogg" then box = f end end
+	box.checked = true; click(box)
+	check(ns.IsSoundEnabled("Munition", "m1.ogg"), "Haken in der Sound-Liste")
+	ns.PlayNextSound("Munition"); check(group(#played) == "Munition", "angehakter Munitions-Sound spielt")
+	click(find(sounds, "Alle an"))
+	click(find(sounds, "aus")) -- erste Gruppe: Allgemein
+	check(not ns.IsSoundEnabled("Allgemein", "a1.ogg") and ns.IsSoundEnabled("Wasser", "w1.ogg"), "Gruppe einzeln abschaltbar")
 	click(find(sounds, "Alle an")); sounds.shown = false
 
 	-- Alarme bearbeiten
@@ -256,6 +282,10 @@ local function run(withBroker)
 	click(find(alarms, ">")); check(find(alarms, "Warnen unter").txt == "1000", "zweiter Alarm: Munition")
 	click(find(alarms, "Neuer Alarm"))
 	check(#KaufAlarmDB.watches == 3, "neuer Alarm angelegt")
+	local soundsButton = find(alarms, "Sounds: Allgemein")
+	check(KaufAlarmDB.watches[3].soundGroup == "Allgemein", "neuer Alarm nutzt allgemeine Sounds")
+	click(soundsButton)
+	check(KaufAlarmDB.watches[3].soundGroup == "Munition" and soundsButton.txt == "Sounds: Munition", "Sound-Gruppe pro Alarm wählbar")
 	type_(find(alarms, "Name"), "Seelensplitter")
 	type_(find(alarms, "Warntext"), "NUR NOCH {anzahl} {name}, {fehlen} FEHLEN BIS {grenze}! {quatsch}")
 	type_(find(alarms, "Warnen unter"), "5")
@@ -322,6 +352,8 @@ do
 	local water = KaufAlarmDB.watches[1]
 	assert(water.threshold == 25 and water.items[1645] and water.items[8766], "Migration")
 	assert(KaufAlarmDB.threshold == nil and KaufAlarmDB.extraItems == nil and KaufAlarmDB.sound == false, "Migration räumt auf")
+	assert(water.soundGroup == "Wasser" and KaufAlarmDB.watches[2].soundGroup == "Munition", "Sound-Gruppen der Standard-Alarme")
+	assert(type(ns.sounds.Allgemein) == "table" and ns.sounds.Allgemein[#ns.sounds.Allgemein] == 416, "echte Sounds.lua hat Gruppen")
 	print("ok   Migration aus Version 1.x")
 end
 print("alle Checks ok")
