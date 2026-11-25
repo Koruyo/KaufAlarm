@@ -20,6 +20,7 @@ local function run(withBroker)
 			if k == "SetShown" then return function(self, v) self.shown = v and true or false end end
 			if k == "IsShown" or k == "IsVisible" then return function(self) return self.shown end end
 			if k == "SetText" then return function(self, s) self.txt = s end end
+			if k == "SetTextColor" then return function(self, r, g, b) self.rgb = r .. "," .. g .. "," .. b end end
 			if k == "GetText" then return function(self) return self.txt end end
 			if k == "SetFormattedText" then return function(self, f, ...) self.txt = f:format(...) end end
 			if k == "HasFocus" then return function(self) return self.focus end end
@@ -253,19 +254,37 @@ local function run(withBroker)
 	click(find(alarms, ">")); check(find(alarms, "Warnen unter").txt == "1000", "zweiter Alarm: Munition")
 	click(find(alarms, "Neuer Alarm"))
 	check(#KaufWasserDB.watches == 3, "neuer Alarm angelegt")
-	type_(find(alarms, "Name"), "Seelensplitter"); type_(find(alarms, "Warntext"), "FARM SPLITTER!")
+	type_(find(alarms, "Name"), "Seelensplitter")
+	type_(find(alarms, "Warntext"), "NUR NOCH {anzahl} {name}, {fehlen} FEHLEN BIS {grenze}! {quatsch}")
 	type_(find(alarms, "Warnen unter"), "5")
 	click(find(alarms, "Nur Klassen mit Mana")) -- an
 	local lock = find(alarms, "WARLOCK"); lock.checked = true; click(lock)
+	local color = find(alarms, "Textfarbe: Rot"); click(color); click(color)
+	check(KaufWasserDB.watches[3].color == "yellow" and color.txt == "Textfarbe: Gelb", "Textfarbe umschaltbar")
 	add.txt = "6265"; add.scripts.OnEnterPressed(add)
 	class = "WARLOCK"; items[6265] = 2; fire("BAG_UPDATE_DELAYED")
-	local found = false
-	for _, f in ipairs(frames) do if f.parent == warn and f.shown and f.txt == "FARM SPLITTER!" then found = true end end
-	check(found, "eigener Alarm für Hexenmeister warnt")
+	local expected = "NUR NOCH 2 Seelensplitter, 3 FEHLEN BIS 5! {quatsch}"
+	local line
+	for _, f in ipairs(frames) do if f.parent == warn and f.shown and f.txt == expected then line = f end end
+	check(line, "Platzhalter im Warntext werden ersetzt")
+	check(line and line.rgb == "1,0.9,0.1", "Warntext in der gewählten Farbe")
+	local previewOk = false
+	for _, f in ipairs(frames) do if f.parent == alarms and f.txt == expected then previewOk = true end end
+	check(previewOk, "Vorschau in den Optionen zeigt den fertigen Text")
+	local function detailShown()
+		for _, f in ipairs(frames) do
+			if f.parent == warn and type(f.txt) == "string" and f.txt:find("Seelensplitter: 2 / 5", 1, true) then return true end
+		end
+		return false
+	end
+	check(detailShown(), "Zeile mit der Anzahl unter dem Warntext")
+	KaufWasserDB.showDetails = false; fire("BAG_UPDATE_DELAYED")
+	check(not detailShown(), "Zeile mit der Anzahl lässt sich ausblenden")
+	KaufWasserDB.showDetails = true
 	class = "MAGE"; fire("BAG_UPDATE_DELAYED")
-	found = false
-	for _, f in ipairs(frames) do if f.parent == warn and f.shown and f.txt == "FARM SPLITTER!" then found = true end end
-	check(not found, "Klassenauswahl: Magier bekommt den Alarm nicht")
+	line = nil
+	for _, f in ipairs(frames) do if f.parent == warn and f.shown and f.txt == expected then line = f end end
+	check(not line, "Klassenauswahl: Magier bekommt den Alarm nicht")
 	click(find(alarms, "Löschen")); check(popup and popup.arg == "Seelensplitter", "Löschen fragt nach")
 	StaticPopupDialogs.KAUFWASSER_DELETE.OnAccept(); check(#KaufWasserDB.watches == 2, "Alarm gelöscht")
 	alarms.shown = false

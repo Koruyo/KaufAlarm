@@ -48,6 +48,7 @@ end
 local DEFAULTS = {
 	fontSize = 64,
 	showInCombat = false,
+	showDetails = true, -- kleine Zeile mit der Anzahl unter dem Warntext
 	sound = true,
 	soundInterval = 60,
 	soundOrder = "random", -- "random" oder "sequence"
@@ -272,12 +273,48 @@ local function Position()
 	warn:SetPoint(db.point, UIParent, db.relPoint, db.x, db.y)
 end
 
+-- Farben für den Warntext, in den Optionen durchschaltbar.
+ns.COLORS = {
+	{ key = "red", name = "Rot", r = 1, g = 0.1, b = 0.1 },
+	{ key = "orange", name = "Orange", r = 1, g = 0.5, b = 0 },
+	{ key = "yellow", name = "Gelb", r = 1, g = 0.9, b = 0.1 },
+	{ key = "green", name = "Grün", r = 0.2, g = 1, b = 0.2 },
+	{ key = "cyan", name = "Türkis", r = 0.2, g = 0.9, b = 1 },
+	{ key = "blue", name = "Blau", r = 0.3, g = 0.5, b = 1 },
+	{ key = "purple", name = "Lila", r = 0.8, g = 0.4, b = 1 },
+	{ key = "pink", name = "Pink", r = 1, g = 0.4, b = 0.8 },
+	{ key = "white", name = "Weiß", r = 1, g = 1, b = 1 },
+}
+
+function ns.WatchColor(watch)
+	for _, color in ipairs(ns.COLORS) do
+		if color.key == watch.color then return color end
+	end
+	return ns.COLORS[1]
+end
+
+-- Ersetzt {anzahl}, {grenze}, {fehlen} und {name} im Warntext.
+function ns.FormatWarnText(watch, count)
+	local values = {
+		anzahl = count,
+		grenze = watch.threshold,
+		fehlen = math.max(0, watch.threshold - count),
+		name = watch.name,
+	}
+	return ((watch.text or ""):gsub("{(%a+)}", function(key)
+		local value = values[key:lower()]
+		return value ~= nil and tostring(value) or nil
+	end))
+end
+
 -- Füllt die Warnung mit den Texten der Alarme in "shown".
 local function Render(shown, subText)
 	local width = 200
 	for i, entry in ipairs(shown) do
 		local line = Line(i)
-		line:SetText(entry.watch.text)
+		local color = ns.WatchColor(entry.watch)
+		line:SetTextColor(color.r, color.g, color.b)
+		line:SetText(ns.FormatWarnText(entry.watch, entry.count))
 		line:Show()
 		width = math.max(width, line:GetStringWidth() or 0)
 	end
@@ -288,7 +325,8 @@ local function Render(shown, subText)
 	sub:ClearAllPoints()
 	sub:SetPoint("TOP", lines[#shown] or warn, #shown > 0 and "BOTTOM" or "TOP", 0, -6)
 	sub:SetText(subText)
-	warn:SetSize(width, math.max(1, #shown) * (db.fontSize + 4) + subSize + 16)
+	local subHeight = subText ~= "" and subSize + 6 or 0
+	warn:SetSize(width, math.max(1, #shown) * (db.fontSize + 4) + subHeight + 10)
 end
 
 local function Update()
@@ -311,6 +349,8 @@ local function Update()
 	local subText
 	if unlocked then
 		subText = "Ziehen zum Verschieben, /kw move zum Fixieren"
+	elseif not db.showDetails then
+		subText = ""
 	else
 		local parts = {}
 		for _, entry in ipairs(shown) do

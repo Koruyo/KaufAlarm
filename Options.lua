@@ -255,24 +255,26 @@ local function BuildMain()
 		function() return db.fontSize end, function(v) db.fontSize = v end)
 	Check(page, "Auch im Kampf anzeigen", 18, -200,
 		function() return db.showInCombat end, function(v) db.showInCombat = v end)
-	Check(page, "Knopf an der Minimap", 18, -225,
+	Check(page, "Anzahl unter dem Warntext anzeigen", 18, -225,
+		function() return db.showDetails end, function(v) db.showDetails = v end)
+	Check(page, "Knopf an der Minimap", 18, -250,
 		function() return ns.Minimap.IsShown() end, function(v) ns.Minimap.SetShown(v) end)
-	Button(page, "Warnung testen", 20, -260, 170, ns.RunTest)
-	Button(page, "Verschieben an/aus", 200, -260, 170, ns.ToggleUnlocked)
-	Button(page, "Position zurücksetzen", 380, -260, 170, ns.ResetPosition)
+	Button(page, "Warnung testen", 20, -285, 170, ns.RunTest)
+	Button(page, "Verschieben an/aus", 200, -285, 170, ns.ToggleUnlocked)
+	Button(page, "Position zurücksetzen", 380, -285, 170, ns.ResetPosition)
 
-	Header(page, "Sound", -305)
-	Check(page, "Sound abspielen, solange die Warnung sichtbar ist", 18, -323,
+	Header(page, "Sound", -325)
+	Check(page, "Sound abspielen, solange die Warnung sichtbar ist", 18, -343,
 		function() return db.sound end, function(v) db.sound = v end)
-	Slider(page, "Wiederholen alle", 22, -375, 10, 300, 10, " Sekunden",
+	Slider(page, "Wiederholen alle", 22, -395, 10, 300, 10, " Sekunden",
 		function() return db.soundInterval end, function(v) db.soundInterval = v end)
-	Button(page, "Nächsten Sound spielen", 312, -371, 200, function()
+	Button(page, "Nächsten Sound spielen", 312, -391, 200, function()
 		if not ns.PlayNextSound() then ns.Print("Kein Sound angehakt (Seite \"Sounds\").") end
 	end)
-	Cycle(page, 20, -410, 240,
+	Cycle(page, 20, -430, 240,
 		function() return "Reihenfolge: " .. ns.ORDER_NAMES[db.soundOrder] end,
 		function() db.soundOrder = db.soundOrder == "random" and "sequence" or "random" end)
-	Cycle(page, 270, -410, 240,
+	Cycle(page, 270, -430, 240,
 		function() return "Lautstärke-Regler: " .. (ns.CHANNEL_NAMES[db.soundChannel] or db.soundChannel) end,
 		function()
 			local next = 1
@@ -283,7 +285,7 @@ local function BuildMain()
 		end)
 
 	local hint = page:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-	hint:SetPoint("TOPLEFT", page, "TOPLEFT", 18, -450)
+	hint:SetPoint("TOPLEFT", page, "TOPLEFT", 18, -470)
 	hint:SetPoint("RIGHT", page, "RIGHT", -16, 0)
 	hint:SetJustifyH("LEFT")
 	hint:SetText("Titan Panel, ChocolateBar, Bazooka, ElvUI und andere Broker-Leisten zeigen den Eintrag "
@@ -350,24 +352,46 @@ local function BuildAlarms()
 		function() return Watch().name end, function(v) Watch().name = v end)
 	Edit(page, "Warntext", 214, -135, 330, false,
 		function() return Watch().text end, function(v) Watch().text = v end)
-	Edit(page, "Warnen unter", 22, -180, 70, true,
+	Cycle(page, 214, -86, 200,
+		function() return "Textfarbe: " .. ns.WatchColor(Watch()).name end,
+		function()
+			local current, next = ns.WatchColor(Watch()), 1
+			for i, color in ipairs(ns.COLORS) do
+				if color == current then next = i % #ns.COLORS + 1 end
+			end
+			Watch().color = ns.COLORS[next].key
+		end)
+	local preview = page:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+	preview:SetPoint("TOPLEFT", page, "TOPLEFT", 22, -162)
+	preview:SetPoint("RIGHT", page, "RIGHT", -16, 0)
+	preview:SetJustifyH("LEFT")
+	preview.Refresh = function(self)
+		local watch, color = Watch(), ns.WatchColor(Watch())
+		self:SetTextColor(color.r, color.g, color.b)
+		self:SetText(ns.FormatWarnText(watch, ns.CountWatch(watch)))
+	end
+	Register(page, preview)
+	local placeholders = page:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+	placeholders:SetPoint("TOPLEFT", preview, "BOTTOMLEFT", 0, -3)
+	placeholders:SetText("Platzhalter im Warntext: {anzahl} im Gepäck, {grenze}, {fehlen} bis zur Grenze, {name} des Alarms")
+	Edit(page, "Warnen unter", 22, -220, 70, true,
 		function() return Watch().threshold end, function(v) Watch().threshold = math.max(1, v) end)
-	Edit(page, "Ab Stufe", 114, -180, 40, true,
+	Edit(page, "Ab Stufe", 114, -220, 40, true,
 		function() return Watch().minLevel end, function(v) Watch().minLevel = math.max(1, v) end)
-	Check(page, "Nur Klassen mit Mana", 210, -166,
+	Check(page, "Nur Klassen mit Mana", 210, -206,
 		function() return Watch().manaOnly end, function(v) Watch().manaOnly = v or nil end)
-	Check(page, "Ausgerüstete Munition mitzählen (Jäger)", 210, -190,
+	Check(page, "Ausgerüstete Munition mitzählen (Jäger)", 210, -230,
 		function() return Watch().ammo end, function(v) Watch().ammo = v or nil end)
 
 	local classLabel = page:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-	classLabel:SetPoint("TOPLEFT", page, "TOPLEFT", 18, -225)
+	classLabel:SetPoint("TOPLEFT", page, "TOPLEFT", 18, -262)
 	classLabel:SetText("Nur für diese Klassen (keine angehakt = alle Klassen):")
 	for i, class in ipairs(ns.CLASSES) do
 		local column, row = (i - 1) % 5, math.floor((i - 1) / 5)
 		local name = LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class] or class
 		local color = RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
 		if color and color.colorStr then name = "|c" .. color.colorStr .. name .. "|r" end
-		Check(page, name, 18 + column * 112, -240 - row * 24,
+		Check(page, name, 18 + column * 112, -277 - row * 24,
 			function() return Watch().classes and Watch().classes[class] end,
 			function(v)
 				local watch = Watch()
@@ -376,9 +400,9 @@ local function BuildAlarms()
 			end)
 	end
 
-	Header(page, "Items", -300)
+	Header(page, "Items", -332)
 	local addBox = CreateFrame("EditBox", "KaufWasserItemEingabe", page, "InputBoxTemplate")
-	addBox:SetPoint("TOPLEFT", page, "TOPLEFT", 28, -335)
+	addBox:SetPoint("TOPLEFT", page, "TOPLEFT", 28, -367)
 	addBox:SetSize(300, 20)
 	addBox:SetAutoFocus(false)
 	local addLabel = page:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -398,7 +422,7 @@ local function BuildAlarms()
 	end
 	addBox:SetScript("OnEnterPressed", addItem)
 	addBox:SetScript("OnEscapePressed", function(self) self:SetText(""); self:ClearFocus() end)
-	Button(page, "Hinzufügen", 340, -333, 110, addItem)
+	Button(page, "Hinzufügen", 340, -365, 110, addItem)
 	-- Shift-Klick auf ein Item schreibt den Link in das Feld, solange es aktiv ist.
 	if hooksecurefunc and ChatEdit_InsertLink then
 		hooksecurefunc("ChatEdit_InsertLink", function(link)
@@ -406,7 +430,7 @@ local function BuildAlarms()
 		end)
 	end
 
-	local list = ScrollList(page, "KaufWasserItemListe", -365, 150)
+	local list = ScrollList(page, "KaufWasserItemListe", -395, 135)
 	local rows = {}
 	local empty = list:CreateFontString(nil, "ARTWORK", "GameFontDisable")
 	empty:SetPoint("TOPLEFT", 6, -6)
