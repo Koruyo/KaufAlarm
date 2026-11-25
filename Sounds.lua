@@ -10,7 +10,6 @@ local _, ns = ...
 ns.sounds = {
 	"blubblub.ogg",
 	"coconut-water-song-meme-mp3.ogg",
-	"couldn-t-get-no-water-he-died-of-the-dehydration.ogg",
 	"durst_alarm.ogg",
 	"hello-im-under-the-water_4FMcD6D.ogg",
 	"im-going-to-bust-nut-in-water-tower.ogg",
