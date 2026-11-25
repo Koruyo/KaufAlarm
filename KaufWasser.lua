@@ -40,6 +40,7 @@ local unlocked = false
 local alarmActive = false
 local lastSound = -math.huge
 local lastSoundIndex
+local optionsPanel
 local optionsCategory
 local optionWidgets = {}
 
@@ -63,11 +64,13 @@ local function CountWater()
 	end
 	return total
 end
+ns.CountWater = CountWater
 
 local function IsEligible()
 	local _, class = UnitClass("player")
 	return not NO_MANA[class] and (UnitLevel("player") or 0) >= MIN_LEVEL
 end
+ns.IsEligible = IsEligible
 
 --------------------------------------------------------------------------------
 -- Sound
@@ -159,10 +162,13 @@ local function ApplyLayout()
 	warn:SetPoint(db.point, UIParent, db.relPoint, db.x, db.y)
 end
 
+local RefreshOptions -- unten bei den Optionen
+
 local function Update()
 	if not db then return end
 	local count = CountWater()
-	alarmActive = IsEligible() and count < db.threshold and (db.showInCombat or not inCombat)
+	local low = IsEligible() and count < db.threshold
+	alarmActive = low and (db.showInCombat or not inCombat)
 
 	if unlocked then
 		sub:SetText("Ziehen zum Verschieben, /kw move zum Fixieren")
@@ -172,6 +178,9 @@ local function Update()
 	dragBackground:SetShown(unlocked)
 	warn:EnableMouse(unlocked)
 	warn:SetShown(alarmActive or testMode or unlocked)
+
+	if ns.Minimap then ns.Minimap.Refresh(count, low) end
+	if optionsPanel and optionsPanel:IsShown() then RefreshOptions() end
 end
 
 local function RunTest()
@@ -183,6 +192,7 @@ local function RunTest()
 		Update()
 	end)
 end
+ns.RunTest = RunTest
 
 local function SetUnlocked(value)
 	unlocked = value
@@ -190,21 +200,45 @@ local function SetUnlocked(value)
 	Print(unlocked and "Position entsperrt, Text mit der Maus ziehen." or "Position fixiert.")
 end
 
+local function ResetPosition()
+	db.point, db.relPoint, db.x, db.y = DEFAULTS.point, DEFAULTS.relPoint, DEFAULTS.x, DEFAULTS.y
+	ApplyLayout()
+	Print("Position zurückgesetzt.")
+end
+
+local function ToggleSound()
+	db.sound = not db.sound
+	Print("Sound " .. (db.sound and "an." or "aus."))
+	Update()
+end
+ns.ToggleSound = ToggleSound
+
 --------------------------------------------------------------------------------
 -- Optionen
 --------------------------------------------------------------------------------
 
-local function RefreshOptions()
+function RefreshOptions()
 	for _, widget in ipairs(optionWidgets) do
 		widget:Refresh()
 	end
 end
 
-local function AddSlider(panel, key, label, y, minimum, maximum, step, suffix)
+local function AddHeader(panel, label, y)
+	local header = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+	header:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, y)
+	header:SetText(label)
+	local line = panel:CreateTexture(nil, "ARTWORK")
+	line:SetColorTexture(1, 0.82, 0, 0.25)
+	line:SetHeight(1)
+	line:SetPoint("LEFT", header, "RIGHT", 8, 0)
+	line:SetPoint("RIGHT", panel, "RIGHT", -16, 0)
+end
+
+local function AddSlider(panel, key, label, x, y, minimum, maximum, step, suffix)
 	local name = "KaufWasserSlider_" .. key
 	local slider = CreateFrame("Slider", name, panel, "OptionsSliderTemplate")
-	slider:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, y)
-	slider:SetSize(280, 17)
+	slider:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
+	slider:SetSize(250, 17)
 	slider:SetMinMaxValues(minimum, maximum)
 	slider:SetValueStep(step)
 	if slider.SetObeyStepOnDrag then slider:SetObeyStepOnDrag(true) end
@@ -217,7 +251,8 @@ local function AddSlider(panel, key, label, y, minimum, maximum, step, suffix)
 	caption:SetPoint("BOTTOMLEFT", slider, "TOPLEFT", 0, 4)
 	local function show(value) caption:SetText(label .. ": " .. value .. (suffix or "")) end
 
-	slider:SetScript("OnValueChanged", function(_, value)
+	slider:SetScript("OnValueChanged", function(self, value)
+		if self.refreshing then return end
 		value = math.floor(value / step + 0.5) * step
 		show(value)
 		if value ~= db[key] then
@@ -227,33 +262,41 @@ local function AddSlider(panel, key, label, y, minimum, maximum, step, suffix)
 		end
 	end)
 	slider.Refresh = function(self)
+		self.refreshing = true
 		self:SetValue(db[key])
+		self.refreshing = false
 		show(db[key])
 	end
 	optionWidgets[#optionWidgets + 1] = slider
 	return slider
 end
 
-local function AddCheckbox(panel, key, label, y)
-	local box = CreateFrame("CheckButton", "KaufWasserCheck_" .. key, panel, "UICheckButtonTemplate")
-	box:SetPoint("TOPLEFT", panel, "TOPLEFT", 18, y)
+local function AddCheckbox(panel, label, x, y, get, set)
+	local box = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+	box:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
 	box:SetSize(26, 26)
 	local caption = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
 	caption:SetPoint("LEFT", box, "RIGHT", 4, 0)
 	caption:SetText(label)
 	box:SetScript("OnClick", function(self)
-		db[key] = self:GetChecked() and true or false
+		set(self:GetChecked() and true or false)
 		Update()
 	end)
-	box.Refresh = function(self) self:SetChecked(db[key]) end
+	box.Refresh = function(self) self:SetChecked(get()) end
 	optionWidgets[#optionWidgets + 1] = box
 	return box
+end
+
+local function AddDbCheckbox(panel, key, label, x, y)
+	return AddCheckbox(panel, label, x, y,
+		function() return db[key] end,
+		function(value) db[key] = value end)
 end
 
 local function AddButton(panel, label, x, y, onClick)
 	local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
 	button:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
-	button:SetSize(150, 24)
+	button:SetSize(170, 24)
 	button:SetText(label)
 	button:SetScript("OnClick", onClick)
 	return button
@@ -261,24 +304,52 @@ end
 
 local function BuildOptions()
 	local panel = CreateFrame("Frame", "KaufWasserOptionen")
+	panel:Hide() -- ohne Elternfenster gälte es sonst als sichtbar
 	panel.name = "KaufWasser"
+	optionsPanel = panel
 
 	local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
 	title:SetPoint("TOPLEFT", 16, -16)
-	title:SetText("KaufWasser")
+	title:SetText("|cff3fa9ffKauf|rWasser")
 
 	local info = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	info:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
 	info:SetText("Warnt, wenn weniger Trichterwindentau bzw. Magierwasser im Gepäck ist als die Grenze.")
 
-	AddSlider(panel, "threshold", "Grenze", -90, 1, 200, 1, " Wasser")
-	AddSlider(panel, "fontSize", "Schriftgröße", -150, 20, 120, 2)
-	AddCheckbox(panel, "showInCombat", "Auch im Kampf anzeigen", -185)
-	AddCheckbox(panel, "sound", "Sound abspielen, solange die Warnung sichtbar ist", -215)
-	AddSlider(panel, "soundInterval", "Sound alle", -280, 10, 300, 10, " Sekunden")
+	local status = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+	status:SetPoint("TOPLEFT", info, "BOTTOMLEFT", 0, -8)
+	status.Refresh = function(self)
+		local count = CountWater()
+		local color = count < db.threshold and "ff3333" or "4dff4d"
+		local note = IsEligible() and "" or "  |cff999999(dieser Charakter wird nicht gewarnt)|r"
+		self:SetText(("Im Gepäck: |cff%s%d Wasser|r%s"):format(color, count, note))
+	end
+	optionWidgets[#optionWidgets + 1] = status
 
-	AddButton(panel, "Testen", 20, -320, RunTest)
-	AddButton(panel, "Verschieben an/aus", 180, -320, function() SetUnlocked(not unlocked) end)
+	AddHeader(panel, "Warnung", -100)
+	AddSlider(panel, "threshold", "Grenze", 22, -140, 1, 200, 1, " Wasser")
+	AddSlider(panel, "fontSize", "Schriftgröße", 312, -140, 20, 120, 2)
+	AddDbCheckbox(panel, "showInCombat", "Auch im Kampf anzeigen", 18, -168)
+
+	AddHeader(panel, "Sound", -212)
+	AddDbCheckbox(panel, "sound", "Sound abspielen, solange die Warnung sichtbar ist", 18, -230)
+	AddSlider(panel, "soundInterval", "Sound alle", 22, -282, 10, 300, 10, " Sekunden")
+	AddButton(panel, "Zufälligen Sound spielen", 312, -278, PlayRandomSound)
+
+	AddHeader(panel, "Anzeige", -322)
+	AddCheckbox(panel, "Knopf an der Minimap", 18, -340,
+		function() return ns.Minimap.IsShown() end,
+		function(value) ns.Minimap.SetShown(value) end)
+	AddButton(panel, "Warnung testen", 20, -378, RunTest)
+	AddButton(panel, "Verschieben an/aus", 200, -378, function() SetUnlocked(not unlocked) end)
+	AddButton(panel, "Position zurücksetzen", 380, -378, ResetPosition)
+
+	local hint = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+	hint:SetPoint("TOPLEFT", panel, "TOPLEFT", 18, -420)
+	hint:SetPoint("RIGHT", panel, "RIGHT", -16, 0)
+	hint:SetJustifyH("LEFT")
+	hint:SetText("Titan Panel, ChocolateBar, Bazooka, ElvUI und andere Broker-Leisten zeigen den Eintrag "
+		.. "\"KaufWasser\" mit der Zahl deiner Wasser. Weitere Befehle: /kw help")
 
 	panel:SetScript("OnShow", RefreshOptions)
 
@@ -293,13 +364,23 @@ local function BuildOptions()
 	end
 end
 
-local function OpenOptions()
+local function ToggleOptions()
+	local frame = SettingsPanel or InterfaceOptionsFrame
+	if optionsPanel and optionsPanel:IsVisible() and frame and frame:IsShown() then
+		if HideUIPanel then HideUIPanel(frame) else frame:Hide() end
+		return
+	end
 	if optionsCategory and Settings and Settings.OpenToCategory then
 		local id = optionsCategory.GetID and optionsCategory:GetID() or optionsCategory.ID
-		if pcall(Settings.OpenToCategory, id) then return true end
+		if pcall(Settings.OpenToCategory, id) then return end
 	end
-	return false
+	if InterfaceOptionsFrame_OpenToCategory and optionsPanel then
+		-- zweimal: der erste Aufruf landet bei manchen Clients auf der falschen Seite
+		InterfaceOptionsFrame_OpenToCategory(optionsPanel)
+		InterfaceOptionsFrame_OpenToCategory(optionsPanel)
+	end
 end
+ns.ToggleOptions = ToggleOptions
 
 --------------------------------------------------------------------------------
 -- Slash-Befehle
@@ -310,10 +391,11 @@ local function PrintHelp()
 	Print("  /kw - Optionen öffnen")
 	Print("  /kw 40 - Grenze setzen")
 	Print("  /kw test - Warnung und Sound testen")
-	Print("  /kw move - Position ent-/sperren")
+	Print("  /kw move - Position ent-/sperren, /kw reset - Position zurücksetzen")
 	Print("  /kw size 64 - Schriftgröße")
 	Print("  /kw sound - Sound an/aus")
 	Print("  /kw combat - Anzeige im Kampf an/aus")
+	Print("  /kw minimap - Knopf an der Minimap an/aus")
 	Print("  /kw add [Item] / remove [Item] - weiteres Wasser mitzählen")
 	Print("  /kw status - aktueller Stand")
 end
@@ -329,8 +411,8 @@ SlashCmdList.KAUFWASSER = function(msg)
 	local cmd, arg = msg:match("^(%S*)%s*(.*)$")
 	cmd = cmd:lower()
 
-	if cmd == "" then
-		if not OpenOptions() then PrintHelp() end
+	if cmd == "" or cmd == "options" or cmd == "config" then
+		ToggleOptions()
 	elseif tonumber(cmd) then
 		db.threshold = math.max(1, math.floor(tonumber(cmd)))
 		Print("Grenze: " .. db.threshold .. " Wasser.")
@@ -338,16 +420,21 @@ SlashCmdList.KAUFWASSER = function(msg)
 		RunTest()
 	elseif cmd == "move" or cmd == "lock" or cmd == "unlock" then
 		SetUnlocked(not unlocked)
+	elseif cmd == "reset" then
+		ResetPosition()
 	elseif cmd == "size" and tonumber(arg) then
 		db.fontSize = math.min(120, math.max(20, math.floor(tonumber(arg))))
 		ApplyLayout()
 		Print("Schriftgröße: " .. db.fontSize)
 	elseif cmd == "sound" then
-		db.sound = not db.sound
-		Print("Sound " .. (db.sound and "an." or "aus."))
+		ToggleSound()
 	elseif cmd == "combat" then
 		db.showInCombat = not db.showInCombat
 		Print("Anzeige im Kampf " .. (db.showInCombat and "an." or "aus."))
+	elseif cmd == "minimap" then
+		local show = not ns.Minimap.IsShown()
+		ns.Minimap.SetShown(show)
+		Print("Knopf an der Minimap " .. (show and "an." or "aus."))
 	elseif cmd == "add" or cmd == "remove" then
 		local id = ParseItemID(arg)
 		if not id then
@@ -370,7 +457,6 @@ SlashCmdList.KAUFWASSER = function(msg)
 		PrintHelp()
 	end
 
-	RefreshOptions()
 	Update()
 end
 
@@ -380,6 +466,7 @@ end
 
 local events = CreateFrame("Frame")
 events:RegisterEvent("ADDON_LOADED")
+events:RegisterEvent("PLAYER_LOGIN")
 events:RegisterEvent("PLAYER_ENTERING_WORLD")
 events:RegisterEvent("BAG_UPDATE_DELAYED")
 events:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -391,6 +478,7 @@ events:SetScript("OnEvent", function(_, event, arg1)
 		if arg1 ~= ADDON_NAME then return end
 		KaufWasserDB = KaufWasserDB or {}
 		db = KaufWasserDB
+		ns.db = db
 		for key, value in pairs(DEFAULTS) do
 			if db[key] == nil then
 				db[key] = type(value) == "table" and {} or value
@@ -398,6 +486,9 @@ events:SetScript("OnEvent", function(_, event, arg1)
 		end
 		ApplyLayout()
 		BuildOptions()
+	elseif event == "PLAYER_LOGIN" then
+		-- Jetzt sind auch Titan Panel & Co. geladen, die LibDataBroker mitbringen.
+		ns.Minimap.Init()
 	elseif event == "PLAYER_ENTERING_WORLD" then
 		inCombat = UnitAffectingCombat("player") and true or false
 		-- Das Gepäck ist direkt beim Einloggen noch nicht geladen, sonst gäbe es Fehlalarm.

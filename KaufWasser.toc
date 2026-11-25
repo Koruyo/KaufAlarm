@@ -3,9 +3,16 @@
 ## Notes: Big on-screen warning when you are running low on your best water. Options: /kw
 ## Notes-deDE: Große Warnung auf dem Bildschirm, wenn das beste Wasser knapp wird. Optionen: /kw
 ## Author: Koruyo
-## Version: 1.0.0
-## IconTexture: Interface\Icons\INV_Potion_01
+## Version: 1.1.0
+## IconTexture: Interface\Icons\INV_Drink_18
+## Category: Inventory
+## Category-deDE: Inventar
 ## SavedVariables: KaufWasserDB
+## OptionalDeps: LibStub, LibDataBroker-1.1, LibDBIcon-1.0, Titan, ChocolateBar, Bazooka, ElvUI
+## AddonCompartmentFunc: KaufWasser_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: KaufWasser_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: KaufWasser_OnAddonCompartmentLeave
 
 Sounds.lua
+Minimap.lua
 KaufWasser.lua
