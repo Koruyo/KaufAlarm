@@ -26,9 +26,12 @@ Wiederholrate (10–300 Sekunden). Auf der Seite *Sounds* hakst du an, welche So
 und kannst jeden probehören. Auf der Hauptseite wählst du die Reihenfolge (zufällig oder der
 Reihe nach) und den Lautstärke-Regler (Gesamt, Effekte, Dialog, Umgebung, Musik).
 
-Eigene Sounds: `.ogg`- oder `.mp3`-Dateien in den Ordner `Sounds` legen und
-`tools/update-sounds.sh` ausführen. Danach WoW komplett neu starten, `/reload` reicht für neue
-Dateien nicht. Neue Sounds sind automatisch angehakt.
+Eigene Sounds: `.mp3`-, `.wav`- oder andere Audiodateien in den Ordner `Sounds` legen und
+`tools/normalize-sounds.sh` ausführen. Das Skript gleicht die Lautstärke an (−16 LUFS, damit
+kein Clip viel lauter oder leiser ist als die anderen), speichert sie als `.ogg`, legt die
+Originale nach `Sounds/original/` und trägt alles in [Sounds.lua](Sounds.lua) ein. Danach WoW
+komplett neu starten, `/reload` reicht für neue Dateien nicht. Neue Sounds sind automatisch
+angehakt.
 
 ## Minimap, Broker-Leisten und Addon-Fach
 
@@ -71,4 +74,4 @@ luajit tests/mocktest.lua
 Prüft Logik und Optionen mit einer nachgebauten WoW-API, einmal ohne und einmal mit
 Broker-Bibliotheken, dazu die Übernahme der Einstellungen aus Version 1.x.
 
-Die mitgelieferten Sounds sind mit `tools/make-sounds.sh` (ffmpeg) erzeugt.
+Die mitgelieferten Sounds sind mit `tools/make-sounds.sh` (ffmpeg) erzeugt und angeglichen.
