@@ -1,0 +1,12 @@
+package-as: KaufAlarm
+
+enable-nolib-creation: no
+
+# Die Meme-Clips in Sounds/<Gruppe>/ kommen mit ins Release,
+# Werkzeuge, Tests und die Quell-SVG des Icons nicht.
+ignore:
+  - tests
+  - tools
+  - Media/icon.svg
+  - README.md
+  - .github

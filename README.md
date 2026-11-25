@@ -43,8 +43,8 @@ Gruppe an, welche Sounds dabei sind, und kannst jeden probehören. Auf der Haupt
 die Reihenfolge (zufällig oder der Reihe nach) und den Lautstärke-Regler (Gesamt, Effekte,
 Dialog, Umgebung, Musik).
 
-Die Meme-Clips sind nicht im Git, nur ihre Einträge in Sounds.lua. Fehlt eine Datei, gurgelt
-stattdessen ein Murloc.
+Die angeglichenen `.ogg`-Clips sind im Git und kommen mit ins Release, die Originale in
+`Sounds/original/` nicht. Fehlt eine Datei, gurgelt stattdessen ein Murloc.
 
 Neue Sounds: `.mp3`-, `.wav`- oder andere Audiodateien in den passenden Gruppen-Ordner legen
 und `tools/normalize-sounds.sh` ausführen. Das Skript gleicht die Lautstärke an (−16 LUFS, damit
@@ -85,6 +85,12 @@ Den Ordner als `KaufAlarm` in den AddOns-Ordner des Spiels verlinken oder kopier
 ```bash
 ln -s "$HOME/Projekte/KaufAlarm" "$HOME/Games/battlenet/drive_c/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/KaufAlarm"
 ```
+
+## Release
+
+Ein Tag wie `v1.5.0` baut über GitHub Actions ([BigWigs packager](https://github.com/BigWigsMods/packager))
+ein Zip mit Code, Icon und allen Sounds und hängt es an ein GitHub-Release. `tests/`, `tools/`,
+`Media/icon.svg` und die README bleiben draußen (siehe [.pkgmeta](.pkgmeta)).
 
 ## Test
 

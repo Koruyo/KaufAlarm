@@ -1,0 +1,25 @@
+name: Release
+
+# Ein Tag wie v1.6.0 baut das Addon-Zip (mit allen Sounds) und lädt es
+# zu GitHub Releases hoch, und zu CurseForge, sobald das Projekt dort
+# eingerichtet ist (X-Curse-Project-ID in der .toc und das Secret CF_API_KEY).
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      CF_API_KEY: ${{ secrets.CF_API_KEY }}
+      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: BigWigsMods/packager@v2
