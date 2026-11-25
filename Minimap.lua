@@ -4,7 +4,7 @@
 --
 -- Ist LibDataBroker geladen (Titan Panel, ChocolateBar, Bazooka, ElvUI und viele
 -- andere bringen es mit), meldet sich das Addon dort an. Die Leisten zeigen dann
--- die Zahl der Wasser im Gepäck, rot sobald es unter der Grenze ist.
+-- die Vorräte jedes Alarms, rot sobald einer unter der Grenze ist.
 -- Ist außerdem LibDBIcon geladen, übernimmt es den Knopf an der Minimap; dann
 -- sammeln ihn auch Minimap-Addons ein. Ohne LibDBIcon zeichnet das Addon einen
 -- eigenen Knopf, der sich um die Minimap ziehen lässt.
@@ -41,15 +41,19 @@ function M.FillTooltip(tooltip, ownButton)
 	if not tooltip or not tooltip.AddLine or not ns.db then return end
 	local number = version()
 	tooltip:AddLine("|cff3fa9ffKauf|rWasser" .. (number and (" |cff999999" .. number .. "|r") or ""))
-	local count, threshold = ns.CountWater(), ns.db.threshold
-	local r, g, b = 0.3, 1, 0.3
-	if count < threshold then r, g, b = 1, 0.2, 0.2 end
-	tooltip:AddDoubleLine("Wasser im Gepäck", count, 1, 0.82, 0, r, g, b)
-	tooltip:AddDoubleLine("Grenze", threshold, 1, 0.82, 0, 1, 1, 1)
-	tooltip:AddDoubleLine("Sound", ns.db.sound and "an" or "aus", 1, 0.82, 0, 1, 1, 1)
-	if not ns.IsEligible() then
-		tooltip:AddLine("Dieser Charakter wird nicht gewarnt.", 0.7, 0.7, 0.7, true)
+	local any = false
+	for _, entry in ipairs(ns.Status()) do
+		if entry.eligible then
+			any = true
+			local r, g, b = 0.3, 1, 0.3
+			if entry.low then r, g, b = 1, 0.2, 0.2 end
+			tooltip:AddDoubleLine(entry.watch.name, ("%d / %d"):format(entry.count, entry.watch.threshold), 1, 0.82, 0, r, g, b)
+		end
 	end
+	if not any then
+		tooltip:AddLine("Für diesen Charakter ist kein Alarm aktiv.", 0.7, 0.7, 0.7, true)
+	end
+	tooltip:AddDoubleLine("Sound", ns.db.sound and "an" or "aus", 1, 0.82, 0, 1, 1, 1)
 	tooltip:AddLine(" ")
 	tooltip:AddLine("Linksklick: Optionen", 1, 1, 1)
 	tooltip:AddLine("Rechtsklick: Sound an/aus", 1, 1, 1)
@@ -145,7 +149,7 @@ local function registerBroker()
 	if not (okBroker and ldb and ldb.NewDataObject) then return false end
 	local ok, object = pcall(ldb.NewDataObject, ldb, NAME, {
 		type = "data source",
-		label = "Wasser",
+		label = "KaufWasser",
 		text = "-",
 		icon = icon(),
 		OnClick = M.OnClick,
@@ -166,11 +170,16 @@ local function registerWithLibrary()
 	return true
 end
 
--- Aktualisiert die Zahl in den Broker-Leisten.
-function M.Refresh(count, low)
+-- Aktualisiert die Zahlen in den Broker-Leisten, z. B. "37 · 1400".
+function M.Refresh(status)
 	if not broker then return end
-	broker.text = (low and "|cffff3333%d|r" or "%d"):format(count)
-	broker.value = count
+	local parts = {}
+	for _, entry in ipairs(status) do
+		if entry.eligible then
+			parts[#parts + 1] = (entry.low and "|cffff3333%d|r" or "%d"):format(entry.count)
+		end
+	end
+	broker.text = #parts > 0 and table.concat(parts, " · ") or "-"
 end
 
 function M.IsShown()

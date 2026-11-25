@@ -1,63 +1,66 @@
 # KaufWasser
 
-WoW-Classic-Addon: zeigt groß **KAUF WASSER DU HUANSOHN!** auf dem Bildschirm, sobald weniger
-als 40 vom besten Wasser im Gepäck sind, und spielt dazu jede Minute einen zufälligen Sound.
+WoW-Addon: zeigt groß **KAUF WASSER DU HUANSOHN!** auf dem Bildschirm, sobald dir Wasser,
+Munition oder etwas anderes ausgeht, und spielt dazu regelmäßig einen Sound.
 
-Gezählt werden zusammen:
+## Alarme
 
-- Trichterwindentau (Item 8766)
-- Herbeigezaubertes Kristallwasser (8079) und Sprudelwasser (8078) vom Magier
+Jeder Alarm zählt eine Liste von Items zusammen und warnt unter seiner Grenze. Voreingestellt:
 
-Gewarnt wird nur bei Klassen mit Mana, ab Stufe 45 und standardmäßig nicht im Kampf.
+| Alarm | zählt | Grenze | für |
+| --- | --- | --- | --- |
+| Wasser | Trichterwindentau (8766), Kristallwasser (8079), Sprudelwasser (8078) | 40 | Klassen mit Mana ab Stufe 45 |
+| Munition | die ausgerüstete Munition, egal welche Sorte | 1000 | Jäger ab Stufe 10 |
+
+In den Optionen unter *Alarme* lässt sich für jeden Alarm einstellen: an/aus, Name, Warntext,
+Grenze, Mindeststufe, „nur Klassen mit Mana“, „ausgerüstete Munition mitzählen“, Klassenauswahl
+und die Item-Liste. Items fügst du per Shift-Klick, Item-Link, Item-ID oder Namen hinzu.
+Weitere Alarme (Seelensplitter, Reagenzien, Essen, Verbände …) legst du mit *Neuer Alarm* an.
+
+Warnen mehrere Alarme gleichzeitig, stehen ihre Texte untereinander.
+
+## Sounds
+
+Solange eine Warnung sichtbar ist, spielt ein Sound sofort und dann in der eingestellten
+Wiederholrate (10–300 Sekunden). Auf der Seite *Sounds* hakst du an, welche Sounds dabei sind,
+und kannst jeden probehören. Auf der Hauptseite wählst du die Reihenfolge (zufällig oder der
+Reihe nach) und den Lautstärke-Regler (Gesamt, Effekte, Dialog, Umgebung, Musik).
+
+Eigene Sounds: `.ogg`- oder `.mp3`-Dateien in den Ordner `Sounds` legen und
+`tools/update-sounds.sh` ausführen. Danach WoW komplett neu starten, `/reload` reicht für neue
+Dateien nicht. Neue Sounds sind automatisch angehakt.
 
 ## Minimap, Broker-Leisten und Addon-Fach
 
 - **Minimap-Knopf:** Linksklick öffnet die Optionen, Rechtsklick schaltet den Sound an/aus,
-  Shift-Klick testet die Warnung. Der Knopf lässt sich um die Minimap ziehen und mit
-  `/kw minimap` oder in den Optionen ausblenden.
-- **Titan Panel, ChocolateBar, Bazooka, ElvUI usw.:** Ist LibDataBroker geladen (bringen diese
-  Leisten mit), erscheint der Eintrag *KaufWasser* mit der Zahl deiner Wasser, rot unter der
-  Grenze. Tooltip und Klicks wie beim Minimap-Knopf.
-- **Minimap-Addons:** Ist LibDBIcon geladen, übernimmt es den Minimap-Knopf, damit Addons wie
-  MinimapButtonBag ihn einsammeln können.
+  Shift-Klick testet die Warnung. Ziehbar, ausblendbar mit `/kw minimap` oder in den Optionen.
+- **Titan Panel, ChocolateBar, Bazooka, ElvUI usw.:** Ist LibDataBroker geladen, erscheint der
+  Eintrag *KaufWasser* mit den Vorräten aller Alarme, z. B. `37 · 1400`, rot unter der Grenze.
+- **Minimap-Addons:** Ist LibDBIcon geladen, übernimmt es den Knopf.
 - **Addon-Fach:** KaufWasser steht im Addon-Menü an der Minimap, wo es der Client anbietet.
 
 Das Addon bringt selbst keine Bibliotheken mit und läuft ohne sie mit eigenem Knopf.
-
-## Optionen
-
-`/kw` oder Linksklick auf den Knopf öffnet die Optionen unter *Einstellungen → AddOns →
-KaufWasser*: Grenze, Schriftgröße, Anzeige im Kampf, Sound an/aus und Intervall, Minimap-Knopf,
-Testen, Verschieben und Position zurücksetzen.
-
-## Installation
-
-Den Ordner als `KaufWasser` nach `World of Warcraft/_classic_era_/Interface/AddOns/` kopieren
-oder verlinken.
 
 ## Befehle
 
 | Befehl | Wirkung |
 | --- | --- |
 | `/kw` | Optionen öffnen |
-| `/kw 40` | Grenze setzen |
 | `/kw test` | Warnung und Sound testen |
 | `/kw move` | Text verschieben bzw. wieder fixieren |
 | `/kw reset` | Position zurücksetzen |
-| `/kw minimap` | Minimap-Knopf an/aus |
-| `/kw size 64` | Schriftgröße |
 | `/kw sound` | Sound an/aus |
 | `/kw combat` | Anzeige im Kampf an/aus |
-| `/kw add [Item]` / `/kw remove [Item]` | weiteres Wasser mitzählen (Item-Link oder ID) |
-| `/kw status` | aktueller Stand |
+| `/kw minimap` | Minimap-Knopf an/aus |
+| `/kw status` | Stand aller Alarme |
 
-## Eigene Sounds
+## Installation
 
-`.ogg`- oder `.mp3`-Dateien in den Ordner `Sounds` legen und `tools/update-sounds.sh` ausführen.
-Das Skript trägt alle Dateien aus dem Ordner in [Sounds.lua](Sounds.lua) ein. Danach WoW komplett
-neu starten, `/reload` reicht für neue Dateien nicht.
+Den Ordner als `KaufWasser` in den AddOns-Ordner des Spiels verlinken oder kopieren, z. B.:
 
-Die mitgelieferten Sounds sind mit `tools/make-sounds.sh` (ffmpeg) erzeugt.
+```bash
+ln -s ~/Projekte/KaufWasser "~/Games/battlenet/drive_c/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/KaufWasser"
+```
 
 ## Test
 
@@ -65,4 +68,7 @@ Die mitgelieferten Sounds sind mit `tools/make-sounds.sh` (ffmpeg) erzeugt.
 luajit tests/mocktest.lua
 ```
 
-Prüft die Logik mit einer nachgebauten WoW-API, einmal ohne und einmal mit Broker-Bibliotheken.
+Prüft Logik und Optionen mit einer nachgebauten WoW-API, einmal ohne und einmal mit
+Broker-Bibliotheken, dazu die Übernahme der Einstellungen aus Version 1.x.
+
+Die mitgelieferten Sounds sind mit `tools/make-sounds.sh` (ffmpeg) erzeugt.

@@ -1,34 +1,62 @@
+-- KaufWasser: Logik, Warnung auf dem Bildschirm, Sounds, Slash-Befehle
+--
+-- Jeder Alarm ("watch") zählt eine Liste von Items (und auf Wunsch die
+-- ausgerüstete Munition) und warnt, sobald weniger als die Grenze im Gepäck ist.
 local ADDON_NAME, ns = ...
 
-local WARN_TEXT = "KAUF WASSER DU HUANSOHN!"
 local PREFIX = "|cff3fa9ffKaufWasser|r: "
 local SOUND_PATH = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Sounds\\"
 local FALLBACK_SOUND = 416 -- Murloc, falls eine Sounddatei fehlt
+local AMMO_SLOT = INVSLOT_AMMO or 0
 
--- Trichterwindentau ist erst ab Stufe 45 trinkbar, darunter wird nicht gewarnt.
-local MIN_LEVEL = 45
-
--- Das beste Wasser. Alles hier (plus per /kw add ergänzte Items) wird zusammengezählt.
-local BEST_WATER = {
-	[8766] = true, -- Trichterwindentau (Morning Glory Dew)
-	[8079] = true, -- Herbeigezaubertes Kristallwasser (Magier, Rang 7)
-	[8078] = true, -- Herbeigezaubertes Sprudelwasser (Magier, Rang 6, gleichwertig mit Trichterwindentau)
-}
-
--- Klassen ohne Mana brauchen kein Wasser.
+ns.CLASSES = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID" }
 local NO_MANA = { WARRIOR = true, ROGUE = true, DEATHKNIGHT = true }
 
+-- Voreingestellte Alarme. Alles davon lässt sich in den Optionen ändern.
+local function DefaultWatches()
+	return {
+		{
+			name = "Wasser",
+			enabled = true,
+			text = "KAUF WASSER DU HUANSOHN!",
+			threshold = 40,
+			minLevel = 45, -- Trichterwindentau ist erst ab Stufe 45 trinkbar
+			manaOnly = true,
+			items = {
+				[8766] = true, -- Trichterwindentau (Morning Glory Dew)
+				[8079] = true, -- Herbeigezaubertes Kristallwasser (Magier, Rang 7)
+				[8078] = true, -- Herbeigezaubertes Sprudelwasser (Magier, Rang 6)
+			},
+		},
+		{
+			name = "Munition",
+			enabled = true,
+			text = "KAUF MUNITION DU HUANSOHN!",
+			threshold = 1000,
+			minLevel = 10,
+			ammo = true, -- zählt die ausgerüstete Munition, egal welche Sorte
+			classes = { HUNTER = true },
+			items = {},
+		},
+	}
+end
+
+function ns.NewWatch()
+	return { name = "Neuer Alarm", enabled = true, text = "KAUF NACHSCHUB DU HUANSOHN!", threshold = 20, minLevel = 1, items = {} }
+end
+
 local DEFAULTS = {
-	threshold = 40,
 	fontSize = 64,
 	showInCombat = false,
 	sound = true,
 	soundInterval = 60,
+	soundOrder = "random", -- "random" oder "sequence"
+	soundChannel = "Master",
+	disabledSounds = {}, -- abgewählte Sounds; neue Dateien sind so automatisch an
 	point = "CENTER",
 	relPoint = "CENTER",
 	x = 0,
 	y = 160,
-	extraItems = {},
 }
 
 local GetItemCount = (C_Item and C_Item.GetItemCount) or GetItemCount
@@ -40,63 +68,145 @@ local unlocked = false
 local alarmActive = false
 local lastSound = -math.huge
 local lastSoundIndex
-local optionsPanel
-local optionsCategory
-local optionWidgets = {}
 
 local function Print(msg)
 	DEFAULT_CHAT_FRAME:AddMessage(PREFIX .. msg)
+end
+ns.Print = Print
+
+--------------------------------------------------------------------------------
+-- Gespeicherte Einstellungen
+--------------------------------------------------------------------------------
+
+local function SetupDB()
+	KaufWasserDB = type(KaufWasserDB) == "table" and KaufWasserDB or {}
+	db = KaufWasserDB
+	ns.db = db
+	for key, value in pairs(DEFAULTS) do
+		if db[key] == nil then
+			db[key] = type(value) == "table" and {} or value
+		end
+	end
+	if type(db.watches) ~= "table" then
+		db.watches = DefaultWatches()
+		-- Einstellungen aus Version 1.x übernehmen
+		local water = db.watches[1]
+		if type(db.threshold) == "number" then water.threshold = db.threshold end
+		if type(db.extraItems) == "table" then
+			for id in pairs(db.extraItems) do water.items[id] = true end
+		end
+	end
+	db.threshold, db.extraItems = nil, nil
+	for _, watch in ipairs(db.watches) do
+		watch.items = type(watch.items) == "table" and watch.items or {}
+		watch.threshold = tonumber(watch.threshold) or 1
+		watch.minLevel = tonumber(watch.minLevel) or 1
+	end
 end
 
 --------------------------------------------------------------------------------
 -- Zählen
 --------------------------------------------------------------------------------
 
-local function CountWater()
+local function CountWatch(watch)
 	local total = 0
-	for id in pairs(BEST_WATER) do
+	for id in pairs(watch.items) do
 		total = total + (GetItemCount(id) or 0)
 	end
-	for id in pairs(db.extraItems) do
-		if not BEST_WATER[id] then
-			total = total + (GetItemCount(id) or 0)
-		end
+	if watch.ammo and GetInventoryItemID and GetInventoryItemID("player", AMMO_SLOT) then
+		total = total + (GetInventoryItemCount("player", AMMO_SLOT) or 0)
 	end
 	return total
 end
-ns.CountWater = CountWater
+ns.CountWatch = CountWatch
 
-local function IsEligible()
+-- Gilt der Alarm für diesen Charakter (Klasse, Stufe, aktiv)?
+local function IsWatchEligible(watch)
+	if not watch.enabled then return false end
 	local _, class = UnitClass("player")
-	return not NO_MANA[class] and (UnitLevel("player") or 0) >= MIN_LEVEL
+	if watch.manaOnly and NO_MANA[class] then return false end
+	if type(watch.classes) == "table" and next(watch.classes) and not watch.classes[class] then return false end
+	return (UnitLevel("player") or 0) >= (watch.minLevel or 1)
 end
-ns.IsEligible = IsEligible
+ns.IsWatchEligible = IsWatchEligible
+
+-- Stand aller Alarme: { watch, count, eligible, low }
+local function Status()
+	local list = {}
+	for _, watch in ipairs(db.watches) do
+		local count = CountWatch(watch)
+		local eligible = IsWatchEligible(watch)
+		list[#list + 1] = { watch = watch, count = count, eligible = eligible, low = eligible and count < watch.threshold }
+	end
+	return list
+end
+ns.Status = Status
 
 --------------------------------------------------------------------------------
 -- Sound
 --------------------------------------------------------------------------------
 
-local function PlayRandomSound()
-	lastSound = GetTime()
-	local list = ns.sounds or {}
-	local n = #list
-	if n == 0 then
-		PlaySound(FALLBACK_SOUND, "Master")
-		return
-	end
-	local index = math.random(n)
-	if n > 1 and index == lastSoundIndex then
-		index = index % n + 1 -- nie zweimal hintereinander derselbe
-	end
-	lastSoundIndex = index
+ns.CHANNELS = { "Master", "SFX", "Dialog", "Ambience", "Music" }
+ns.CHANNEL_NAMES = { Master = "Gesamt", SFX = "Effekte", Dialog = "Dialog", Ambience = "Umgebung", Music = "Musik" }
+ns.ORDER_NAMES = { random = "zufällig", sequence = "der Reihe nach" }
 
-	local entry = list[index]
+local function SoundKey(entry)
+	return tostring(entry)
+end
+
+function ns.SoundLabel(entry)
 	if type(entry) == "number" then
-		PlaySound(entry, "Master")
-	elseif not PlaySoundFile(SOUND_PATH .. entry, "Master") then
-		PlaySound(FALLBACK_SOUND, "Master")
+		return entry == 416 and "Murloc-Gurgeln (aus dem Spiel)" or ("Spiel-Sound " .. entry)
+	end
+	return (entry:gsub("%.[^.]+$", ""):gsub("[-_]+", " "))
+end
+
+function ns.IsSoundEnabled(entry)
+	return not db.disabledSounds[SoundKey(entry)]
+end
+
+function ns.SetSoundEnabled(entry, enabled)
+	db.disabledSounds[SoundKey(entry)] = (not enabled) or nil
+end
+
+local function PlayEntry(entry)
+	local channel = db.soundChannel
+	if type(entry) == "number" then
+		PlaySound(entry, channel)
+	elseif not PlaySoundFile(SOUND_PATH .. entry, channel) then
+		PlaySound(FALLBACK_SOUND, channel)
 	end
 end
+ns.PlayEntry = PlayEntry
+
+-- Spielt einen der angehakten Sounds, zufällig oder der Reihe nach.
+-- Gibt false zurück, wenn kein Sound angehakt ist.
+local function PlayNextSound()
+	lastSound = GetTime()
+	local pool = {}
+	for index, entry in ipairs(ns.sounds or {}) do
+		if ns.IsSoundEnabled(entry) then pool[#pool + 1] = index end
+	end
+	local n = #pool
+	if n == 0 then return false end
+
+	local pick
+	if db.soundOrder == "sequence" then
+		pick = 1
+		for i, index in ipairs(pool) do
+			if lastSoundIndex and index > lastSoundIndex then pick = i break end
+		end
+	else
+		pick = math.random(n)
+		if n > 1 and pool[pick] == lastSoundIndex then
+			pick = pick % n + 1 -- nie zweimal hintereinander derselbe
+		end
+	end
+	lastSoundIndex = pool[pick]
+	PlayEntry(ns.sounds[lastSoundIndex])
+	return true
+end
+ns.PlayNextSound = PlayNextSound
 
 --------------------------------------------------------------------------------
 -- Warnung auf dem Bildschirm
@@ -114,16 +224,21 @@ dragBackground:SetAllPoints()
 dragBackground:SetColorTexture(0, 0.6, 1, 0.3)
 dragBackground:Hide()
 
-local text = warn:CreateFontString(nil, "OVERLAY")
-text:SetFont(STANDARD_TEXT_FONT, DEFAULTS.fontSize, "THICKOUTLINE")
-text:SetPoint("TOP", warn, "TOP", 0, 0)
-text:SetTextColor(1, 0.1, 0.1)
-text:SetText(WARN_TEXT)
-
+local lines = {} -- eine große Zeile je Alarm, der gerade warnt
 local sub = warn:CreateFontString(nil, "OVERLAY")
-sub:SetFont(STANDARD_TEXT_FONT, 20, "OUTLINE")
-sub:SetPoint("TOP", text, "BOTTOM", 0, -6)
 sub:SetTextColor(1, 0.85, 0.2)
+
+local function Line(index)
+	local line = lines[index]
+	if not line then
+		line = warn:CreateFontString(nil, "OVERLAY")
+		line:SetTextColor(1, 0.1, 0.1)
+		line:SetPoint("TOP", index == 1 and warn or lines[index - 1], index == 1 and "TOP" or "BOTTOM", 0, index == 1 and 0 or -4)
+		lines[index] = line
+	end
+	line:SetFont(STANDARD_TEXT_FONT, db.fontSize, "THICKOUTLINE")
+	return line
+end
 
 local pulse = warn:CreateAnimationGroup()
 pulse:SetLooping("BOUNCE")
@@ -139,7 +254,7 @@ warn:SetScript("OnHide", function() pulse:Stop() end)
 -- Läuft nur, solange die Warnung sichtbar ist.
 warn:SetScript("OnUpdate", function()
 	if alarmActive and db.sound and GetTime() - lastSound >= db.soundInterval then
-		PlayRandomSound()
+		PlayNextSound()
 	end
 end)
 
@@ -152,235 +267,100 @@ warn:SetScript("OnDragStop", function(self)
 	db.point, db.relPoint, db.x, db.y = point, relPoint, x, y
 end)
 
-local function ApplyLayout()
-	local subSize = math.max(12, math.floor(db.fontSize / 3 + 0.5))
-	text:SetFont(STANDARD_TEXT_FONT, db.fontSize, "THICKOUTLINE")
-	text:SetText(WARN_TEXT)
-	sub:SetFont(STANDARD_TEXT_FONT, subSize, "OUTLINE")
-	warn:SetSize(math.max(200, text:GetStringWidth()), db.fontSize + subSize + 16)
+local function Position()
 	warn:ClearAllPoints()
 	warn:SetPoint(db.point, UIParent, db.relPoint, db.x, db.y)
 end
 
-local RefreshOptions -- unten bei den Optionen
+-- Füllt die Warnung mit den Texten der Alarme in "shown".
+local function Render(shown, subText)
+	local width = 200
+	for i, entry in ipairs(shown) do
+		local line = Line(i)
+		line:SetText(entry.watch.text)
+		line:Show()
+		width = math.max(width, line:GetStringWidth() or 0)
+	end
+	for i = #shown + 1, #lines do lines[i]:Hide() end
+
+	local subSize = math.max(12, math.floor(db.fontSize / 3 + 0.5))
+	sub:SetFont(STANDARD_TEXT_FONT, subSize, "OUTLINE")
+	sub:ClearAllPoints()
+	sub:SetPoint("TOP", lines[#shown] or warn, #shown > 0 and "BOTTOM" or "TOP", 0, -6)
+	sub:SetText(subText)
+	warn:SetSize(width, math.max(1, #shown) * (db.fontSize + 4) + subSize + 16)
+end
 
 local function Update()
 	if not db then return end
-	local count = CountWater()
-	local low = IsEligible() and count < db.threshold
-	alarmActive = low and (db.showInCombat or not inCombat)
-
-	if unlocked then
-		sub:SetText("Ziehen zum Verschieben, /kw move zum Fixieren")
-	else
-		sub:SetFormattedText("Nur noch %d Wasser (Grenze: %d)", count, db.threshold)
+	local status = Status()
+	local low = {}
+	for _, entry in ipairs(status) do
+		if entry.low then low[#low + 1] = entry end
 	end
+	alarmActive = #low > 0 and (db.showInCombat or not inCombat)
+
+	local shown = alarmActive and low or {}
+	if (testMode or unlocked) and #shown == 0 then
+		for _, entry in ipairs(status) do
+			if entry.watch.enabled then shown[#shown + 1] = entry end
+		end
+		if #shown == 0 and status[1] then shown[1] = status[1] end
+	end
+
+	local subText
+	if unlocked then
+		subText = "Ziehen zum Verschieben, /kw move zum Fixieren"
+	else
+		local parts = {}
+		for _, entry in ipairs(shown) do
+			parts[#parts + 1] = ("%s: %d / %d"):format(entry.watch.name, entry.count, entry.watch.threshold)
+		end
+		subText = table.concat(parts, "   ·   ")
+	end
+
+	Render(shown, subText)
 	dragBackground:SetShown(unlocked)
 	warn:EnableMouse(unlocked)
 	warn:SetShown(alarmActive or testMode or unlocked)
 
-	if ns.Minimap then ns.Minimap.Refresh(count, low) end
-	if optionsPanel and optionsPanel:IsShown() then RefreshOptions() end
+	if ns.Minimap then ns.Minimap.Refresh(status) end
+	if ns.RefreshOptions then ns.RefreshOptions() end
+end
+ns.Update = Update
+
+function ns.ApplyLayout()
+	Position()
+	Update()
 end
 
-local function RunTest()
+function ns.RunTest()
 	testMode = true
 	Update()
-	if db.sound then PlayRandomSound() end
+	if db.sound then PlayNextSound() end
 	C_Timer.After(6, function()
 		testMode = false
 		Update()
 	end)
 end
-ns.RunTest = RunTest
 
-local function SetUnlocked(value)
-	unlocked = value
+function ns.ToggleUnlocked()
+	unlocked = not unlocked
 	Update()
 	Print(unlocked and "Position entsperrt, Text mit der Maus ziehen." or "Position fixiert.")
 end
 
-local function ResetPosition()
+function ns.ResetPosition()
 	db.point, db.relPoint, db.x, db.y = DEFAULTS.point, DEFAULTS.relPoint, DEFAULTS.x, DEFAULTS.y
-	ApplyLayout()
+	Position()
 	Print("Position zurückgesetzt.")
 end
 
-local function ToggleSound()
+function ns.ToggleSound()
 	db.sound = not db.sound
 	Print("Sound " .. (db.sound and "an." or "aus."))
 	Update()
 end
-ns.ToggleSound = ToggleSound
-
---------------------------------------------------------------------------------
--- Optionen
---------------------------------------------------------------------------------
-
-function RefreshOptions()
-	for _, widget in ipairs(optionWidgets) do
-		widget:Refresh()
-	end
-end
-
-local function AddHeader(panel, label, y)
-	local header = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-	header:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, y)
-	header:SetText(label)
-	local line = panel:CreateTexture(nil, "ARTWORK")
-	line:SetColorTexture(1, 0.82, 0, 0.25)
-	line:SetHeight(1)
-	line:SetPoint("LEFT", header, "RIGHT", 8, 0)
-	line:SetPoint("RIGHT", panel, "RIGHT", -16, 0)
-end
-
-local function AddSlider(panel, key, label, x, y, minimum, maximum, step, suffix)
-	local name = "KaufWasserSlider_" .. key
-	local slider = CreateFrame("Slider", name, panel, "OptionsSliderTemplate")
-	slider:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
-	slider:SetSize(250, 17)
-	slider:SetMinMaxValues(minimum, maximum)
-	slider:SetValueStep(step)
-	if slider.SetObeyStepOnDrag then slider:SetObeyStepOnDrag(true) end
-	for _, part in ipairs({ "Low", "High", "Text" }) do
-		local region = slider[part] or _G[name .. part]
-		if type(region) == "table" and region.SetText then region:SetText("") end
-	end
-
-	local caption = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-	caption:SetPoint("BOTTOMLEFT", slider, "TOPLEFT", 0, 4)
-	local function show(value) caption:SetText(label .. ": " .. value .. (suffix or "")) end
-
-	slider:SetScript("OnValueChanged", function(self, value)
-		if self.refreshing then return end
-		value = math.floor(value / step + 0.5) * step
-		show(value)
-		if value ~= db[key] then
-			db[key] = value
-			ApplyLayout()
-			Update()
-		end
-	end)
-	slider.Refresh = function(self)
-		self.refreshing = true
-		self:SetValue(db[key])
-		self.refreshing = false
-		show(db[key])
-	end
-	optionWidgets[#optionWidgets + 1] = slider
-	return slider
-end
-
-local function AddCheckbox(panel, label, x, y, get, set)
-	local box = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
-	box:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
-	box:SetSize(26, 26)
-	local caption = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-	caption:SetPoint("LEFT", box, "RIGHT", 4, 0)
-	caption:SetText(label)
-	box:SetScript("OnClick", function(self)
-		set(self:GetChecked() and true or false)
-		Update()
-	end)
-	box.Refresh = function(self) self:SetChecked(get()) end
-	optionWidgets[#optionWidgets + 1] = box
-	return box
-end
-
-local function AddDbCheckbox(panel, key, label, x, y)
-	return AddCheckbox(panel, label, x, y,
-		function() return db[key] end,
-		function(value) db[key] = value end)
-end
-
-local function AddButton(panel, label, x, y, onClick)
-	local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-	button:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
-	button:SetSize(170, 24)
-	button:SetText(label)
-	button:SetScript("OnClick", onClick)
-	return button
-end
-
-local function BuildOptions()
-	local panel = CreateFrame("Frame", "KaufWasserOptionen")
-	panel:Hide() -- ohne Elternfenster gälte es sonst als sichtbar
-	panel.name = "KaufWasser"
-	optionsPanel = panel
-
-	local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-	title:SetPoint("TOPLEFT", 16, -16)
-	title:SetText("|cff3fa9ffKauf|rWasser")
-
-	local info = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-	info:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
-	info:SetText("Warnt, wenn weniger Trichterwindentau bzw. Magierwasser im Gepäck ist als die Grenze.")
-
-	local status = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-	status:SetPoint("TOPLEFT", info, "BOTTOMLEFT", 0, -8)
-	status.Refresh = function(self)
-		local count = CountWater()
-		local color = count < db.threshold and "ff3333" or "4dff4d"
-		local note = IsEligible() and "" or "  |cff999999(dieser Charakter wird nicht gewarnt)|r"
-		self:SetText(("Im Gepäck: |cff%s%d Wasser|r%s"):format(color, count, note))
-	end
-	optionWidgets[#optionWidgets + 1] = status
-
-	AddHeader(panel, "Warnung", -100)
-	AddSlider(panel, "threshold", "Grenze", 22, -140, 1, 200, 1, " Wasser")
-	AddSlider(panel, "fontSize", "Schriftgröße", 312, -140, 20, 120, 2)
-	AddDbCheckbox(panel, "showInCombat", "Auch im Kampf anzeigen", 18, -168)
-
-	AddHeader(panel, "Sound", -212)
-	AddDbCheckbox(panel, "sound", "Sound abspielen, solange die Warnung sichtbar ist", 18, -230)
-	AddSlider(panel, "soundInterval", "Sound alle", 22, -282, 10, 300, 10, " Sekunden")
-	AddButton(panel, "Zufälligen Sound spielen", 312, -278, PlayRandomSound)
-
-	AddHeader(panel, "Anzeige", -322)
-	AddCheckbox(panel, "Knopf an der Minimap", 18, -340,
-		function() return ns.Minimap.IsShown() end,
-		function(value) ns.Minimap.SetShown(value) end)
-	AddButton(panel, "Warnung testen", 20, -378, RunTest)
-	AddButton(panel, "Verschieben an/aus", 200, -378, function() SetUnlocked(not unlocked) end)
-	AddButton(panel, "Position zurücksetzen", 380, -378, ResetPosition)
-
-	local hint = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-	hint:SetPoint("TOPLEFT", panel, "TOPLEFT", 18, -420)
-	hint:SetPoint("RIGHT", panel, "RIGHT", -16, 0)
-	hint:SetJustifyH("LEFT")
-	hint:SetText("Titan Panel, ChocolateBar, Bazooka, ElvUI und andere Broker-Leisten zeigen den Eintrag "
-		.. "\"KaufWasser\" mit der Zahl deiner Wasser. Weitere Befehle: /kw help")
-
-	panel:SetScript("OnShow", RefreshOptions)
-
-	if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
-		local ok, category = pcall(Settings.RegisterCanvasLayoutCategory, panel, panel.name)
-		if ok and category then
-			pcall(Settings.RegisterAddOnCategory, category)
-			optionsCategory = category
-		end
-	elseif InterfaceOptions_AddCategory then
-		InterfaceOptions_AddCategory(panel)
-	end
-end
-
-local function ToggleOptions()
-	local frame = SettingsPanel or InterfaceOptionsFrame
-	if optionsPanel and optionsPanel:IsVisible() and frame and frame:IsShown() then
-		if HideUIPanel then HideUIPanel(frame) else frame:Hide() end
-		return
-	end
-	if optionsCategory and Settings and Settings.OpenToCategory then
-		local id = optionsCategory.GetID and optionsCategory:GetID() or optionsCategory.ID
-		if pcall(Settings.OpenToCategory, id) then return end
-	end
-	if InterfaceOptionsFrame_OpenToCategory and optionsPanel then
-		-- zweimal: der erste Aufruf landet bei manchen Clients auf der falschen Seite
-		InterfaceOptionsFrame_OpenToCategory(optionsPanel)
-		InterfaceOptionsFrame_OpenToCategory(optionsPanel)
-	end
-end
-ns.ToggleOptions = ToggleOptions
 
 --------------------------------------------------------------------------------
 -- Slash-Befehle
@@ -388,46 +368,30 @@ ns.ToggleOptions = ToggleOptions
 
 local function PrintHelp()
 	Print("Befehle:")
-	Print("  /kw - Optionen öffnen")
-	Print("  /kw 40 - Grenze setzen")
+	Print("  /kw - Optionen öffnen (Alarme, Items, Sounds)")
 	Print("  /kw test - Warnung und Sound testen")
 	Print("  /kw move - Position ent-/sperren, /kw reset - Position zurücksetzen")
-	Print("  /kw size 64 - Schriftgröße")
 	Print("  /kw sound - Sound an/aus")
 	Print("  /kw combat - Anzeige im Kampf an/aus")
 	Print("  /kw minimap - Knopf an der Minimap an/aus")
-	Print("  /kw add [Item] / remove [Item] - weiteres Wasser mitzählen")
-	Print("  /kw status - aktueller Stand")
-end
-
-local function ParseItemID(arg)
-	return tonumber(arg:match("item:(%d+)") or arg:match("^(%d+)$"))
+	Print("  /kw status - Stand aller Alarme")
 end
 
 SLASH_KAUFWASSER1 = "/kw"
 SLASH_KAUFWASSER2 = "/kaufwasser"
 SlashCmdList.KAUFWASSER = function(msg)
-	msg = (msg or ""):match("^%s*(.-)%s*$")
-	local cmd, arg = msg:match("^(%S*)%s*(.*)$")
-	cmd = cmd:lower()
+	local cmd = ((msg or ""):match("^%s*(%S*)") or ""):lower()
 
 	if cmd == "" or cmd == "options" or cmd == "config" then
-		ToggleOptions()
-	elseif tonumber(cmd) then
-		db.threshold = math.max(1, math.floor(tonumber(cmd)))
-		Print("Grenze: " .. db.threshold .. " Wasser.")
+		ns.ToggleOptions()
 	elseif cmd == "test" then
-		RunTest()
+		ns.RunTest()
 	elseif cmd == "move" or cmd == "lock" or cmd == "unlock" then
-		SetUnlocked(not unlocked)
+		ns.ToggleUnlocked()
 	elseif cmd == "reset" then
-		ResetPosition()
-	elseif cmd == "size" and tonumber(arg) then
-		db.fontSize = math.min(120, math.max(20, math.floor(tonumber(arg))))
-		ApplyLayout()
-		Print("Schriftgröße: " .. db.fontSize)
+		ns.ResetPosition()
 	elseif cmd == "sound" then
-		ToggleSound()
+		ns.ToggleSound()
 	elseif cmd == "combat" then
 		db.showInCombat = not db.showInCombat
 		Print("Anzeige im Kampf " .. (db.showInCombat and "an." or "aus."))
@@ -435,23 +399,10 @@ SlashCmdList.KAUFWASSER = function(msg)
 		local show = not ns.Minimap.IsShown()
 		ns.Minimap.SetShown(show)
 		Print("Knopf an der Minimap " .. (show and "an." or "aus."))
-	elseif cmd == "add" or cmd == "remove" then
-		local id = ParseItemID(arg)
-		if not id then
-			Print("Item-Link (Shift-Klick) oder Item-ID angeben, z. B. /kw add 8766")
-		elseif cmd == "add" then
-			db.extraItems[id] = true
-			Print("Item " .. id .. " wird mitgezählt.")
-		elseif BEST_WATER[id] then
-			Print("Item " .. id .. " ist fest eingebaut und bleibt.")
-		else
-			db.extraItems[id] = nil
-			Print("Item " .. id .. " wird nicht mehr mitgezählt.")
-		end
 	elseif cmd == "status" then
-		Print(("%d Wasser im Gepäck, Grenze %d."):format(CountWater(), db.threshold))
-		if not IsEligible() then
-			Print("Dieser Charakter wird nicht gewarnt (kein Mana oder unter Stufe " .. MIN_LEVEL .. ").")
+		for _, entry in ipairs(Status()) do
+			local note = entry.eligible and "" or " (gilt nicht für diesen Charakter)"
+			Print(("%s: %d / %d%s"):format(entry.watch.name, entry.count, entry.watch.threshold, note))
 		end
 	else
 		PrintHelp()
@@ -472,27 +423,28 @@ events:RegisterEvent("BAG_UPDATE_DELAYED")
 events:RegisterEvent("PLAYER_REGEN_DISABLED")
 events:RegisterEvent("PLAYER_REGEN_ENABLED")
 events:RegisterEvent("PLAYER_LEVEL_UP")
+events:RegisterEvent("UNIT_INVENTORY_CHANGED")
+events:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+
+local ready = false -- erst nach dem Laden des Gepäcks zählen, sonst gäbe es Fehlalarm
 
 events:SetScript("OnEvent", function(_, event, arg1)
 	if event == "ADDON_LOADED" then
 		if arg1 ~= ADDON_NAME then return end
-		KaufWasserDB = KaufWasserDB or {}
-		db = KaufWasserDB
-		ns.db = db
-		for key, value in pairs(DEFAULTS) do
-			if db[key] == nil then
-				db[key] = type(value) == "table" and {} or value
-			end
-		end
-		ApplyLayout()
-		BuildOptions()
+		SetupDB()
+		Position()
+		ns.BuildOptions()
 	elseif event == "PLAYER_LOGIN" then
 		-- Jetzt sind auch Titan Panel & Co. geladen, die LibDataBroker mitbringen.
 		ns.Minimap.Init()
 	elseif event == "PLAYER_ENTERING_WORLD" then
 		inCombat = UnitAffectingCombat("player") and true or false
-		-- Das Gepäck ist direkt beim Einloggen noch nicht geladen, sonst gäbe es Fehlalarm.
-		C_Timer.After(3, Update)
+		C_Timer.After(3, function()
+			ready = true
+			Update()
+		end)
+	elseif not ready then
+		return
 	elseif event == "PLAYER_REGEN_DISABLED" then
 		inCombat = true
 		Update()
@@ -501,6 +453,8 @@ events:SetScript("OnEvent", function(_, event, arg1)
 		Update()
 	elseif event == "PLAYER_LEVEL_UP" then
 		C_Timer.After(1, Update)
+	elseif event == "UNIT_INVENTORY_CHANGED" then
+		if arg1 == "player" then Update() end
 	else
 		Update()
 	end
