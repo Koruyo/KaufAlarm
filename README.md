@@ -33,7 +33,7 @@ Jeder Alarm wählt seine Gruppe in den Optionen (*Alarme → Sounds: …*). Ein 
 wird automatisch zu einer weiteren Gruppe.
 
 Solange eine Warnung sichtbar ist, spielt ein Sound sofort und dann in der eingestellten
-Wiederholrate (5–300 Sekunden, voreingestellt 13,25 – so lang wie der längste Clip). Warnen
+Wiederholrate (5–300 Sekunden, voreingestellt 15,25 – etwas länger als der längste Clip). Warnen
 mehrere Alarme gleichzeitig, kommen ihre Sounds abwechselnd. Auf der Seite *Sounds* hakst du je
 Gruppe an, welche Sounds dabei sind, und kannst jeden probehören. Auf der Hauptseite wählst du
 die Reihenfolge (zufällig oder der Reihe nach) und den Lautstärke-Regler (Gesamt, Effekte,
