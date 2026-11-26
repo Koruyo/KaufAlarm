@@ -303,7 +303,10 @@ end
 -- Seite 2: Alarme
 --------------------------------------------------------------------------------
 
-StaticPopupDialogs = StaticPopupDialogs or {}
+-- Nur einen Eintrag hinzufügen, nie die globale Tabelle selbst zuweisen:
+-- "StaticPopupDialogs = ..." verseucht (taint) sie, und Blizzards Code, der sie
+-- liest (Esc, Taschen-Klicks), darf danach keine geschützten Funktionen mehr
+-- aufrufen ("KaufAlarm hat versucht ... SpellStopCasting() aufzurufen").
 StaticPopupDialogs.KAUFALARM_DELETE = {
 	text = "Alarm \"%s\" löschen?",
 	button1 = YES or "Ja",

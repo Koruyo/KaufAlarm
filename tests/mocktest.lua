@@ -70,7 +70,7 @@ local function run(withBroker)
 	C_Timer = { After = function(_, f) timers[#timers + 1] = f end }
 	local popup
 	function StaticPopup_Show(which, arg) popup = { which = which, arg = arg } end
-	StaticPopupDialogs = nil
+	StaticPopupDialogs = {} -- gibt es im Spiel immer
 	local hooks = {}
 	function ChatEdit_InsertLink() end
 	function hooksecurefunc(name, f) hooks[name] = f end
@@ -113,8 +113,17 @@ local function run(withBroker)
 		Munition = { "m1.ogg", "m2.ogg" },
 		Wasser = { "w1.ogg", "w2.ogg", "w3.ogg", "w4.ogg" },
 	} }
+	-- Globale Schreibzugriffe mitschneiden: jede Zuweisung an eine globale
+	-- Variable von Blizzard verseucht sie (Taint) und führt zu
+	-- "AddOn 'KaufAlarm' hat versucht die geschützte Funktion ... aufzurufen".
+	local written = {}
+	local env = setmetatable({}, {
+		__index = _G,
+		__newindex = function(_, k, v) written[k] = true; _G[k] = v end,
+	})
 	for _, file in ipairs({ "Minimap.lua", "KaufAlarm.lua", "Options.lua" }) do
-		assert(loadfile(dir .. "/" .. file))("KaufAlarm", ns)
+		local chunk = assert(loadfile(dir .. "/" .. file))
+		setfenv(chunk, env)("KaufAlarm", ns)
 	end
 	local function group(i) -- Gruppe des i-ten gespielten Sounds
 		local p = played[i]
@@ -132,6 +141,15 @@ local function run(withBroker)
 		print((cond and "ok   " or "FAIL ") .. (withBroker and "[Broker] " or "[ohne]   ") .. msg)
 		if not cond then os.exit(1) end
 	end
+	local OWN_GLOBALS = {
+		KaufAlarmDB = true, SLASH_KAUFALARM1 = true, SLASH_KAUFALARM2 = true,
+		KaufAlarm_OnAddonCompartmentClick = true, KaufAlarm_OnAddonCompartmentEnter = true,
+		KaufAlarm_OnAddonCompartmentLeave = true,
+	}
+	for k in pairs(written) do
+		check(OWN_GLOBALS[k], "schreibt keine fremde globale Variable: " .. k)
+	end
+	check(not written.StaticPopupDialogs, "StaticPopupDialogs wird nicht neu zugewiesen (Taint)")
 	local function warnText()
 		local parts = {}
 		for _, f in ipairs(frames) do
