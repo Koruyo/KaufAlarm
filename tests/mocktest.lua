@@ -224,7 +224,9 @@ local function run(withBroker)
 	-- Schurke: Gift auf den Waffen und Gifte im Gepäck
 	class = "ROGUE"; weapons = { [16] = 12345, [17] = 12346 }; items[6947] = 20
 	fire("UNIT_INVENTORY_CHANGED", "player")
-	check(warnText() == "VERGIFTE DEINE WAFFEN DU HUANSOHN!", "Schurke ohne Gift auf den Waffen -> Warnung")
+	check(not warn.shown, "ohne Gift, aber außerhalb des Kampfes -> keine Warnung")
+	fire("PLAYER_REGEN_DISABLED")
+	check(warnText() == "VERGIFTE DEINE WAFFEN DU HUANSOHN!", "ohne Gift im Kampf -> Warnung")
 	before = #played; now = now + 16; tick()
 	check(group(#played) == "Gift", "Gift-Alarm spielt Gift-Sounds (Patapim)")
 	enchant = { main = 30 * 60000 }; fire("UNIT_INVENTORY_CHANGED", "player")
@@ -244,12 +246,19 @@ local function run(withBroker)
 	check(not warn.shown, "Schild in der Schildhand zählt nicht")
 	weapons = {}; enchant = {}; fire("UNIT_INVENTORY_CHANGED", "player")
 	check(not warn.shown, "ohne Waffe keine Gift-Warnung")
-	weapons = { [16] = 12345 }; enchant = { main = 60 * 60000 }; items[6947] = 5; items[2892] = 4
+	weapons = { [16] = 12345 }; level = 19; fire("BAG_UPDATE_DELAYED"); check(not warn.shown, "unter Stufe 20 keine Gift-Warnung")
+	level = 60; fire("PLAYER_REGEN_ENABLED")
+	check(not warn.shown, "nach dem Kampf ist die Gift-Warnung weg")
+	enchant = { main = 60 * 60000 }; items[6947] = nil; items[8927] = 7
 	fire("BAG_UPDATE_DELAYED")
-	check(warnText() == "KAUF GIFTE DU HUANSOHN!", "9 Gifte im Gepäck (unter 10) -> Kauf-Warnung")
-	items[2892] = 5; fire("BAG_UPDATE_DELAYED"); check(not warn.shown, "10 Gifte -> keine Warnung")
-	level = 19; enchant = {}; fire("BAG_UPDATE_DELAYED"); check(not warn.shown, "unter Stufe 20 keine Gift-Warnung")
-	level = 60; class = "MAGE"; fire("BAG_UPDATE_DELAYED")
+	check(not warn.shown, "7 Sofort wirkendes Gift V -> keine Warnung (Grenze 5)")
+	items[8927] = nil; items[6947] = 2; items[2892] = 2; fire("BAG_UPDATE_DELAYED")
+	check(warnText() == "KAUF GIFTE DU HUANSOHN!", "4 Gifte im Gepäck (unter 5) -> Kauf-Warnung")
+	items[2892] = 3; fire("BAG_UPDATE_DELAYED"); check(not warn.shown, "5 Gifte (verschiedene Sorten) -> keine Warnung")
+	items[2892] = 2; fire("PLAYER_REGEN_DISABLED")
+	check(not warn.shown, "Kauf-Warnung für Gifte bleibt im Kampf aus (wie eingestellt)")
+	fire("PLAYER_REGEN_ENABLED"); items[2892] = 3
+	class = "MAGE"; fire("BAG_UPDATE_DELAYED")
 	check(not warnText():find("GIFT"), "Magier bekommt keine Gift-Warnung")
 	weapons = {}; class = "SHAMAN"; items[6947] = nil; items[2892] = nil; fire("BAG_UPDATE_DELAYED")
 
@@ -358,6 +367,10 @@ local function run(withBroker)
 	local kind = find(alarms, "Prüft: Items + ausgerüstete Munition")
 	click(find(alarms, ">")); check(find(alarms, "Warnen unter (Min.)").txt == "5", "dritter Alarm: Gift auf Waffe, Grenze in Minuten")
 	check(kind.txt == "Prüft: Gift auf den Waffen", "Art des Alarms wird angezeigt")
+	local combat = find(alarms, "Kampf: nur im Kampf")
+	click(combat); check(KaufAlarmDB.watches[3].combat == "always" and combat.txt == "Kampf: immer", "Kampf-Modus umschaltbar")
+	click(combat); check(KaufAlarmDB.watches[3].combat == nil and combat.txt == "Kampf: wie Hauptseite", "Kampf-Modus: wie Hauptseite")
+	click(combat); check(KaufAlarmDB.watches[3].combat == "only", "Kampf-Modus: wieder nur im Kampf")
 	click(find(alarms, "<")); click(find(alarms, "<"))
 	click(find(alarms, "Neuer Alarm"))
 	check(#KaufAlarmDB.watches == 5, "neuer Alarm angelegt")
@@ -462,10 +475,24 @@ do
 	assert(#KaufAlarmDB.watches == 4 and KaufAlarmDB.watches[3].weaponBuff and KaufAlarmDB.watches[4].name == "Gifte",
 		"Schurken-Alarme kommen zu alten Einstellungen dazu")
 	assert(KaufAlarmDB.watches[3].soundGroup == "Gift", "Gift-Alarme nutzen die Gift-Sounds")
+	assert(KaufAlarmDB.watches[3].combat == "only", "Gift auf Waffe warnt nur im Kampf")
 	KaufAlarmDB.watches[1].threshold = 1000 -- danach selbst wieder auf 1000 gestellt
 	events.scripts.OnEvent(events, "ADDON_LOADED", "KaufAlarm")
 	assert(KaufAlarmDB.watches[1].threshold == 1000, "Umstellung nur einmal")
 	assert(#KaufAlarmDB.watches == 4, "Schurken-Alarme nur einmal dazu")
-	print("ok   Munitions-Grenze 1000 -> 600")
+	assert(KaufAlarmDB.watches[4].threshold == 5, "neue Gifte-Grenze 5")
+	KaufAlarmDB.schema = 3; KaufAlarmDB.watches[4].threshold = 10
+	events.scripts.OnEvent(events, "ADDON_LOADED", "KaufAlarm")
+	assert(KaufAlarmDB.watches[4].threshold == 5, "gespeicherte Gifte-Grenze 10 (aus 1.6.0) wird 5")
+	KaufAlarmDB.watches[4].threshold = 10
+	events.scripts.OnEvent(events, "ADDON_LOADED", "KaufAlarm")
+	assert(KaufAlarmDB.watches[4].threshold == 10, "danach selbst gewählte 10 bleibt")
+	KaufAlarmDB.schema = 4; KaufAlarmDB.watches[3].combat = nil
+	events.scripts.OnEvent(events, "ADDON_LOADED", "KaufAlarm")
+	assert(KaufAlarmDB.watches[3].combat == "only", "Gift auf Waffe aus 1.6.0 warnt danach nur im Kampf")
+	KaufAlarmDB.watches[3].combat = "always"
+	events.scripts.OnEvent(events, "ADDON_LOADED", "KaufAlarm")
+	assert(KaufAlarmDB.watches[3].combat == "always", "selbst gewählter Kampf-Modus bleibt")
+	print("ok   Munitions-Grenze 1000 -> 600, Gifte-Grenze 10 -> 5")
 end
 print("alle Checks ok")

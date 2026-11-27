@@ -13,19 +13,21 @@ Jeder Alarm zählt eine Liste von Items zusammen und warnt unter seiner Grenze. 
 | Wasser | Trichterwindentau (8766), Kristallwasser (8079), Sprudelwasser (8078) | 40 | Klassen mit Mana ab Stufe 45 |
 | Munition | die ausgerüstete Munition, egal welche Sorte | 600 | Jäger ab Stufe 10 |
 | Gift auf Waffe | Gift auf Waffen- und Schildhand (Schilde zählen nicht) | 5 Minuten Restlaufzeit | Schurken ab Stufe 20 |
-| Gifte | alle Ränge von Sofort wirkendem, Tödlichem, Verkrüppelndem, Gedankenbenebelndem und Wundgift | 10 | Schurken ab Stufe 20 |
+| Gifte | alle Ränge von Sofort wirkendem, Tödlichem, Verkrüppelndem, Gedankenbenebelndem und Wundgift | 5 | Schurken ab Stufe 20 |
 
-*Gift auf Waffe* warnt, sobald eine Waffe gar kein Gift hat oder es in weniger als 5 Minuten
-ausläuft, und nennt in der Zeile darunter die Hand, z. B. `Waffenhand: 30 min, Schildhand: kein Gift`.
+*Gift auf Waffe* warnt nur im Kampf, sobald eine Waffe gar kein Gift hat oder es in weniger als
+5 Minuten ausläuft, und nennt in der Zeile darunter die Hand, z. B. `Waffenhand: 30 min, Schildhand: kein Gift`.
 
 In den Optionen unter *Alarme* lässt sich für jeden Alarm einstellen: an/aus, Name, Warntext,
 Grenze, Mindeststufe, „nur Klassen mit Mana“, was geprüft wird (Items im Gepäck, dazu die
-ausgerüstete Munition, oder das Gift auf den Waffen), Klassenauswahl und die Item-Liste. Items fügst du per Shift-Klick, Item-Link, Item-ID oder Namen hinzu.
+ausgerüstete Munition, oder das Gift auf den Waffen), wann im Kampf gewarnt wird (wie auf der
+Hauptseite, nur im Kampf oder immer), Klassenauswahl und die Item-Liste. Items fügst du per Shift-Klick, Item-Link, Item-ID oder Namen hinzu.
 Weitere Alarme (Seelensplitter, Reagenzien, Essen, Verbände …) legst du mit *Neuer Alarm* an.
 
 Warnen mehrere Alarme gleichzeitig, stehen ihre Texte untereinander.
 
-Im Kampf und in Dungeons, Raids, Schlachtfeldern und Arenen bleibt der Alarm still – weder Text
+Im Kampf (außer bei Alarmen auf „nur im Kampf“ oder „immer“) und in Dungeons, Raids,
+Schlachtfeldern und Arenen bleibt der Alarm still – weder Text
 noch Sound. Beides lässt sich auf der Hauptseite der Optionen (oder mit `/ka combat` und
 `/ka instanz`) einschalten.
 

@@ -3,7 +3,7 @@
 ## Notes: Big on-screen warning when you run low on water, ammo or anything else you choose. Options: /ka
 ## Notes-deDE: Große Warnung auf dem Bildschirm, wenn Wasser, Munition oder anderes knapp wird. Optionen: /ka
 ## Author: Koruyo
-## Version: 1.6.0
+## Version: 1.6.1
 ## IconTexture: Interface\AddOns\KaufAlarm\Media\icon
 ## Category: Inventory
 ## Category-deDE: Inventar

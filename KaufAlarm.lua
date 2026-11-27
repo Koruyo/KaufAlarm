@@ -31,6 +31,7 @@ local function PoisonWatches()
 		threshold = 5, -- Minuten Restlaufzeit
 		minLevel = 20, -- Gifte gibt es ab Stufe 20
 		weaponBuff = true, -- prüft Gift (oder Öl/Wetzstein) auf Waffen- und Schildhand
+		combat = "only", -- erst im Kampf merkt man, dass das Gift fehlt
 		classes = { ROGUE = true },
 		soundGroup = "Gift",
 		color = "green",
@@ -39,7 +40,7 @@ local function PoisonWatches()
 		name = "Gifte",
 		enabled = true,
 		text = "KAUF GIFTE DU HUANSOHN!",
-		threshold = 10,
+		threshold = 5,
 		minLevel = 20,
 		classes = { ROGUE = true },
 		soundGroup = "Gift",
@@ -181,7 +182,19 @@ local function SetupDB()
 		if not hasBuff then table.insert(db.watches, buff) end
 		if not hasPoisons then table.insert(db.watches, poisons) end
 	end
-	db.schema = 3
+	-- Einmalig: "Gifte" warnt jetzt unter 5 statt unter 10.
+	if schema < 4 then
+		for _, watch in ipairs(db.watches) do
+			if watch.name == "Gifte" and watch.threshold == 10 then watch.threshold = 5 end
+		end
+	end
+	-- Einmalig: "Gift auf Waffe" warnt nur noch im Kampf.
+	if schema < 5 then
+		for _, watch in ipairs(db.watches) do
+			if watch.weaponBuff and watch.combat == nil then watch.combat = "only" end
+		end
+	end
+	db.schema = 5
 end
 
 --------------------------------------------------------------------------------
@@ -490,6 +503,20 @@ local function Render(shown, subText)
 	warn:SetSize(width, math.max(1, #shown) * (db.fontSize + 4) + subHeight + 10)
 end
 
+-- Wann ein Alarm im Kampf warnt: nil = wie auf der Hauptseite eingestellt
+-- ("Auch im Kampf anzeigen"), "only" = nur im Kampf, "always" = immer.
+ns.COMBAT_MODES = { "default", "only", "always" }
+ns.COMBAT_NAMES = { default = "Kampf: wie Hauptseite", only = "Kampf: nur im Kampf", always = "Kampf: immer" }
+function ns.CombatMode(watch)
+	return watch.combat or "default"
+end
+function ns.CombatAllows(watch)
+	local mode = ns.CombatMode(watch)
+	if mode == "only" then return inCombat end
+	if mode == "always" then return true end
+	return db.showInCombat or not inCombat
+end
+
 -- Dungeon, Raid, Schlachtfeld oder Arena?
 local HIDDEN_INSTANCES = { party = true, raid = true, pvp = true, arena = true }
 local function InGroupInstance()
@@ -503,13 +530,12 @@ local function Update()
 	if not db then return end
 	local status = Status()
 	local low = {}
+	local allowed = db.showInInstances or not InGroupInstance()
 	for _, entry in ipairs(status) do
-		if entry.low then low[#low + 1] = entry end
+		if entry.low and allowed and ns.CombatAllows(entry.watch) then low[#low + 1] = entry end
 	end
 	alarmActive = #low > 0
-		and (db.showInCombat or not inCombat)
-		and (db.showInInstances or not InGroupInstance())
-	lowActive = alarmActive and low or {}
+	lowActive = low
 
 	local shown = {}
 	for i, entry in ipairs(lowActive) do shown[i] = entry end
