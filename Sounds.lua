@@ -20,6 +20,9 @@ ns.sounds = {
 		"wake-tf-up.ogg",
 		416, -- Murloc-Gurgeln (aus dem Spiel)
 	},
+	["Gift"] = {
+		"brr-brr-patapim-alarm-clock.ogg",
+	},
 	["Munition"] = {
 		"cod-waw-zombies-max-ammo-sound_XHA7lsW.ogg",
 		"i-need-more-bullets.ogg",

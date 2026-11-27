@@ -44,7 +44,9 @@ function M.FillTooltip(tooltip, ownButton)
 			any = true
 			local r, g, b = 0.3, 1, 0.3
 			if entry.low then r, g, b = 1, 0.2, 0.2 end
-			tooltip:AddDoubleLine(entry.watch.name, ("%d / %d"):format(entry.count, entry.watch.threshold), 1, 0.82, 0, r, g, b)
+			local value = entry.watch.weaponBuff and (entry.detail ~= "" and entry.detail or "keine Waffe")
+				or ("%d / %d"):format(entry.count, entry.watch.threshold)
+			tooltip:AddDoubleLine(entry.watch.name, value, 1, 0.82, 0, r, g, b)
 		end
 	end
 	if not any then

@@ -8,13 +8,52 @@ local PREFIX = "|cff3fa9ffKaufAlarm|r: "
 local SOUND_PATH = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Sounds\\"
 local FALLBACK_SOUND = 416 -- Murloc, falls eine Sounddatei fehlt
 local AMMO_SLOT = INVSLOT_AMMO or 0
+local MAIN_HAND = INVSLOT_MAINHAND or 16
+local OFF_HAND = INVSLOT_OFFHAND or 17
+local WEAPON_CLASS = Enum and Enum.ItemClass and Enum.ItemClass.Weapon or 2
+
+-- Schurkengifte, die "Gifte" im Gepäck zählt (alle Ränge)
+local POISONS = {
+	6947, 6949, 6950, 8926, 8927, 8928, -- Sofort wirkendes Gift I-VI
+	2892, 2893, 8984, 8985, 20844, -- Tödliches Gift I-V
+	3775, 3776, -- Verkrüppelndes Gift I-II
+	5237, 6951, 9186, -- Gedankenbenebelndes Gift I-III
+	10918, 10920, 10921, 10922, -- Wundgift I-IV
+}
+
+local function PoisonWatches()
+	local items = {}
+	for _, id in ipairs(POISONS) do items[id] = true end
+	return {
+		name = "Gift auf Waffe",
+		enabled = true,
+		text = "VERGIFTE DEINE WAFFEN DU HUANSOHN!",
+		threshold = 5, -- Minuten Restlaufzeit
+		minLevel = 20, -- Gifte gibt es ab Stufe 20
+		weaponBuff = true, -- prüft Gift (oder Öl/Wetzstein) auf Waffen- und Schildhand
+		classes = { ROGUE = true },
+		soundGroup = "Gift",
+		color = "green",
+		items = {},
+	}, {
+		name = "Gifte",
+		enabled = true,
+		text = "KAUF GIFTE DU HUANSOHN!",
+		threshold = 10,
+		minLevel = 20,
+		classes = { ROGUE = true },
+		soundGroup = "Gift",
+		color = "green",
+		items = items,
+	}
+end
 
 ns.CLASSES = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID" }
 local NO_MANA = { WARRIOR = true, ROGUE = true, DEATHKNIGHT = true }
 
 -- Voreingestellte Alarme. Alles davon lässt sich in den Optionen ändern.
 local function DefaultWatches()
-	return {
+	local watches = {
 		{
 			name = "Wasser",
 			enabled = true,
@@ -41,6 +80,9 @@ local function DefaultWatches()
 			items = {},
 		},
 	}
+	local buff, poisons = PoisonWatches()
+	watches[3], watches[4] = buff, poisons
+	return watches
 end
 
 function ns.NewWatch()
@@ -116,24 +158,65 @@ local function SetupDB()
 		watch.threshold = tonumber(watch.threshold) or 1
 		watch.minLevel = tonumber(watch.minLevel) or 1
 		if type(watch.soundGroup) ~= "string" then
-			watch.soundGroup = watch.ammo and "Munition" or watch.name == "Wasser" and "Wasser" or "Allgemein"
+			watch.soundGroup = watch.ammo and "Munition" or watch.weaponBuff and "Gift"
+				or watch.name == "Wasser" and "Wasser" or "Allgemein"
 		end
 	end
+	local schema = tonumber(db.schema) or 1
 	-- Einmalig: die alte Munitions-Grenze 1000 wird zur neuen Voreinstellung 600.
 	-- Selbst eingestellte Werte bleiben.
-	if (tonumber(db.schema) or 1) < 2 then
+	if schema < 2 then
 		for _, watch in ipairs(db.watches) do
 			if watch.ammo and watch.threshold == 1000 then watch.threshold = 600 end
 		end
 	end
-	db.schema = 2
+	-- Einmalig: die Schurken-Alarme kommen zu bestehenden Einstellungen dazu.
+	if schema < 3 then
+		local hasBuff, hasPoisons = false, false
+		for _, watch in ipairs(db.watches) do
+			if watch.weaponBuff then hasBuff = true end
+			if watch.name == "Gifte" then hasPoisons = true end
+		end
+		local buff, poisons = PoisonWatches()
+		if not hasBuff then table.insert(db.watches, buff) end
+		if not hasPoisons then table.insert(db.watches, poisons) end
+	end
+	db.schema = 3
 end
 
 --------------------------------------------------------------------------------
 -- Zählen
 --------------------------------------------------------------------------------
 
+-- Gift auf den Waffen: kleinste Restlaufzeit in Minuten (0 = eine Waffe ist
+-- nicht vergiftet) und eine Beschreibung je Hand. nil, wenn keine Waffe
+-- angelegt ist. Zählt nur Waffen, keine Schilde oder Nebenhand-Gegenstände.
+local function IsWeapon(slot)
+	local id = GetInventoryItemID and GetInventoryItemID("player", slot)
+	if not id then return false end
+	local getInfo = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
+	local classID = getInfo and select(6, getInfo(id))
+	return classID == nil or classID == WEAPON_CLASS
+end
+
+local function WeaponBuffStatus()
+	if not GetWeaponEnchantInfo then return nil, "" end
+	local hasMain, mainExpiration, _, _, hasOff, offExpiration = GetWeaponEnchantInfo()
+	local minimum, parts = nil, {}
+	local function add(slot, label, has, expiration)
+		if not IsWeapon(slot) then return end
+		local minutes = has and math.floor((expiration or 0) / 60000) or 0
+		minimum = math.min(minimum or minutes, minutes)
+		parts[#parts + 1] = label .. ": " .. (has and (minutes .. " min") or "kein Gift")
+	end
+	add(MAIN_HAND, "Waffenhand", hasMain, mainExpiration)
+	add(OFF_HAND, "Schildhand", hasOff, offExpiration)
+	return minimum, table.concat(parts, ", ")
+end
+ns.WeaponBuffStatus = WeaponBuffStatus
+
 local function CountWatch(watch)
+	if watch.weaponBuff then return (WeaponBuffStatus()) or 0 end
 	local total = 0
 	for id in pairs(watch.items) do
 		total = total + (GetItemCount(id) or 0)
@@ -161,7 +244,16 @@ local function Status()
 	for _, watch in ipairs(db.watches) do
 		local count = CountWatch(watch)
 		local eligible = IsWatchEligible(watch)
-		list[#list + 1] = { watch = watch, count = count, eligible = eligible, low = eligible and count < watch.threshold }
+		local detail
+		if watch.weaponBuff then
+			local minutes, text = WeaponBuffStatus()
+			if minutes == nil then eligible = false end -- keine Waffe angelegt
+			detail = text
+		end
+		list[#list + 1] = {
+			watch = watch, count = count, eligible = eligible, detail = detail,
+			low = eligible and count < watch.threshold,
+		}
 	end
 	return list
 end
@@ -368,6 +460,14 @@ function ns.FormatWarnText(watch, count)
 	end))
 end
 
+-- "Wasser: 30 / 40" bzw. "Gift auf Waffe: Waffenhand: kein Gift, Schildhand: 12 min"
+function ns.EntryText(entry)
+	if entry.watch.weaponBuff then
+		return ("%s: %s"):format(entry.watch.name, entry.detail ~= "" and entry.detail or "keine Waffe")
+	end
+	return ("%s: %d / %d"):format(entry.watch.name, entry.count, entry.watch.threshold)
+end
+
 -- Füllt die Warnung mit den Texten der Alarme in "shown".
 local function Render(shown, subText)
 	local width = 200
@@ -428,7 +528,7 @@ local function Update()
 	else
 		local parts = {}
 		for _, entry in ipairs(shown) do
-			parts[#parts + 1] = ("%s: %d / %d"):format(entry.watch.name, entry.count, entry.watch.threshold)
+			parts[#parts + 1] = ns.EntryText(entry)
 		end
 		subText = table.concat(parts, "   ·   ")
 	end
@@ -520,7 +620,7 @@ SlashCmdList.KAUFALARM = function(msg)
 	elseif cmd == "status" then
 		for _, entry in ipairs(Status()) do
 			local note = entry.eligible and "" or " (gilt nicht für diesen Charakter)"
-			Print(("%s: %d / %d%s"):format(entry.watch.name, entry.count, entry.watch.threshold, note))
+			Print(ns.EntryText(entry) .. note)
 		end
 	else
 		PrintHelp()
@@ -547,6 +647,19 @@ events:RegisterEvent("ZONE_CHANGED_NEW_AREA") -- Betreten/Verlassen von Instanze
 
 local ready = false -- erst nach dem Laden des Gepäcks zählen, sonst gäbe es Fehlalarm
 
+-- Gifte laufen ab, ohne dass ein Event kommt: alle paar Sekunden nachsehen,
+-- solange ein Gift-Alarm für diesen Charakter gilt.
+local POLL = 10
+local function Poll()
+	for _, watch in ipairs(db.watches) do
+		if watch.weaponBuff and IsWatchEligible(watch) then
+			Update()
+			break
+		end
+	end
+	C_Timer.After(POLL, Poll)
+end
+
 events:SetScript("OnEvent", function(_, event, arg1)
 	if event == "ADDON_LOADED" then
 		if arg1 ~= ADDON_NAME then return end
@@ -559,8 +672,10 @@ events:SetScript("OnEvent", function(_, event, arg1)
 	elseif event == "PLAYER_ENTERING_WORLD" then
 		inCombat = UnitAffectingCombat("player") and true or false
 		C_Timer.After(3, function()
+			local first = not ready
 			ready = true
 			Update()
+			if first then C_Timer.After(POLL, Poll) end
 		end)
 	elseif not ready then
 		return

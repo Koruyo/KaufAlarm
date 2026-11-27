@@ -8,7 +8,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 sounds="$root/Sounds"
-mkdir -p "$sounds/Allgemein" "$sounds/Wasser" "$sounds/Munition"
+mkdir -p "$sounds/Allgemein" "$sounds/Wasser" "$sounds/Munition" "$sounds/Gift"
 count=0
 
 lua_string() {

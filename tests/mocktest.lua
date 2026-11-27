@@ -5,6 +5,8 @@ local dir = arg[1] or "."
 local function run(withBroker)
 	local now, items, level, class = 100, {}, 60, "SHAMAN"
 	local ammo = nil -- { id, count }
+	local weapons = {} -- [16] / [17] = Item-ID der Waffe (oder des Schilds)
+	local enchant = {} -- { main = Millisekunden, off = Millisekunden }; nil = kein Gift
 	local instance = nil -- nil, "party", "raid", "pvp", "arena", "none"
 	local played, channels, timers, shift = {}, {}, {}, false
 
@@ -56,7 +58,14 @@ local function run(withBroker)
 	function GetItemCount(id) return items[id] or 0 end
 	function GetItemIcon() return 132794 end
 	function GetItemInfo(id) if id == 8766 then return "Trichterwindentau" end end
-	function GetInventoryItemID(_, slot) assert(slot == 0); return ammo and ammo[1] end
+	function GetInventoryItemID(_, slot)
+		if slot == 0 then return ammo and ammo[1] end
+		assert(slot == 16 or slot == 17); return weapons[slot]
+	end
+	function GetItemInfoInstant(id) return id, "x", "y", "z", 1, id == 2129 and 4 or 2 end -- 2129: Schild
+	function GetWeaponEnchantInfo()
+		return enchant.main ~= nil, enchant.main, 0, 0, enchant.off ~= nil, enchant.off, 0, 0
+	end
 	function GetInventoryItemCount(_, slot) assert(slot == 0); return ammo and ammo[2] or 0 end
 	function UnitClass() return "x", class end
 	function UnitLevel() return level end
@@ -110,6 +119,7 @@ local function run(withBroker)
 	-- feste Beispiel-Sounds statt Sounds.lua, damit der Test nicht vom Ordnerinhalt abhängt
 	local ns = { sounds = {
 		Allgemein = { "a1.ogg", "a2.ogg", 416 },
+		Gift = { "g1.ogg" },
 		Munition = { "m1.ogg", "m2.ogg" },
 		Wasser = { "w1.ogg", "w2.ogg", "w3.ogg", "w4.ogg" },
 	} }
@@ -172,7 +182,7 @@ local function run(withBroker)
 	fire("ADDON_LOADED", "KaufAlarm"); fire("PLAYER_LOGIN"); fire("PLAYER_ENTERING_WORLD")
 	fire("BAG_UPDATE_DELAYED")
 	check(not warn.shown, "vor dem Laden des Gepäcks keine Warnung")
-	check(#KaufAlarmDB.watches == 2, "Standard: Alarme Wasser und Munition")
+	check(#KaufAlarmDB.watches == 4, "Standard: Wasser, Munition, Gift auf Waffe, Gifte")
 	items[8766] = 39; runTimers(); tick()
 	check(warn.shown and warnText() == "KAUF WASSER DU HUANSOHN!", "39 Trichterwindentau -> Wasser-Warnung")
 	check(#played == 1 and channels[1] == "Master", "Sound sofort beim Erscheinen")
@@ -210,6 +220,38 @@ local function run(withBroker)
 	check(warnText() == "KAUF MUNITION DU HUANSOHN!", "keine Munition ausgerüstet -> Warnung")
 	now = now + 16; tick(); check(group(#played) == "Munition", "nur Munition warnt -> Munitions-Sound")
 	ammo = { 18042, 1600 }; class = "SHAMAN"; fire("BAG_UPDATE_DELAYED")
+
+	-- Schurke: Gift auf den Waffen und Gifte im Gepäck
+	class = "ROGUE"; weapons = { [16] = 12345, [17] = 12346 }; items[6947] = 20
+	fire("UNIT_INVENTORY_CHANGED", "player")
+	check(warnText() == "VERGIFTE DEINE WAFFEN DU HUANSOHN!", "Schurke ohne Gift auf den Waffen -> Warnung")
+	before = #played; now = now + 16; tick()
+	check(group(#played) == "Gift", "Gift-Alarm spielt Gift-Sounds (Patapim)")
+	enchant = { main = 30 * 60000 }; fire("UNIT_INVENTORY_CHANGED", "player")
+	check(warn.shown, "nur die Waffenhand vergiftet -> weiter Warnung")
+	local function hasLine(text)
+		for _, f in ipairs(frames) do
+			if f.parent == warn and f.shown and type(f.txt) == "string" and f.txt:find(text, 1, true) then return true end
+		end
+		return false
+	end
+	check(hasLine("Waffenhand: 30 min, Schildhand: kein Gift"), "Zeile nennt die Hand ohne Gift")
+	enchant = { main = 30 * 60000, off = 30 * 60000 }; fire("UNIT_INVENTORY_CHANGED", "player")
+	check(not warn.shown, "beide Waffen vergiftet -> keine Warnung")
+	enchant = { main = 30 * 60000, off = 4 * 60000 + 59000 }; runTimers()
+	check(warnText() == "VERGIFTE DEINE WAFFEN DU HUANSOHN!", "Gift läuft in unter 5 Minuten ab -> Warnung (ohne Event)")
+	weapons[17] = 2129; fire("UNIT_INVENTORY_CHANGED", "player")
+	check(not warn.shown, "Schild in der Schildhand zählt nicht")
+	weapons = {}; enchant = {}; fire("UNIT_INVENTORY_CHANGED", "player")
+	check(not warn.shown, "ohne Waffe keine Gift-Warnung")
+	weapons = { [16] = 12345 }; enchant = { main = 60 * 60000 }; items[6947] = 5; items[2892] = 4
+	fire("BAG_UPDATE_DELAYED")
+	check(warnText() == "KAUF GIFTE DU HUANSOHN!", "9 Gifte im Gepäck (unter 10) -> Kauf-Warnung")
+	items[2892] = 5; fire("BAG_UPDATE_DELAYED"); check(not warn.shown, "10 Gifte -> keine Warnung")
+	level = 19; enchant = {}; fire("BAG_UPDATE_DELAYED"); check(not warn.shown, "unter Stufe 20 keine Gift-Warnung")
+	level = 60; class = "MAGE"; fire("BAG_UPDATE_DELAYED")
+	check(not warnText():find("GIFT"), "Magier bekommt keine Gift-Warnung")
+	weapons = {}; class = "SHAMAN"; items[6947] = nil; items[2892] = nil; fire("BAG_UPDATE_DELAYED")
 
 	-- Minimap, Broker, Addon-Fach
 	local button = ns.Minimap.internals.button()
@@ -313,19 +355,23 @@ local function run(withBroker)
 	end
 	check(removed and not KaufAlarmDB.watches[1].items[8079], "Item lässt sich entfernen")
 	click(find(alarms, ">")); check(find(alarms, "Warnen unter").txt == "600", "zweiter Alarm: Munition")
+	local kind = find(alarms, "Prüft: Items + ausgerüstete Munition")
+	click(find(alarms, ">")); check(find(alarms, "Warnen unter (Min.)").txt == "5", "dritter Alarm: Gift auf Waffe, Grenze in Minuten")
+	check(kind.txt == "Prüft: Gift auf den Waffen", "Art des Alarms wird angezeigt")
+	click(find(alarms, "<")); click(find(alarms, "<"))
 	click(find(alarms, "Neuer Alarm"))
-	check(#KaufAlarmDB.watches == 3, "neuer Alarm angelegt")
+	check(#KaufAlarmDB.watches == 5, "neuer Alarm angelegt")
 	local soundsButton = find(alarms, "Sounds: Allgemein")
-	check(KaufAlarmDB.watches[3].soundGroup == "Allgemein", "neuer Alarm nutzt allgemeine Sounds")
+	check(KaufAlarmDB.watches[5].soundGroup == "Allgemein", "neuer Alarm nutzt allgemeine Sounds")
 	click(soundsButton)
-	check(KaufAlarmDB.watches[3].soundGroup == "Munition" and soundsButton.txt == "Sounds: Munition", "Sound-Gruppe pro Alarm wählbar")
+	check(KaufAlarmDB.watches[5].soundGroup == "Gift" and soundsButton.txt == "Sounds: Gift", "Sound-Gruppe pro Alarm wählbar")
 	type_(find(alarms, "Name"), "Seelensplitter")
 	type_(find(alarms, "Warntext"), "NUR NOCH {anzahl} {name}, {fehlen} FEHLEN BIS {grenze}! {quatsch}")
 	type_(find(alarms, "Warnen unter"), "5")
 	click(find(alarms, "Nur Klassen mit Mana")) -- an
 	local lock = find(alarms, "WARLOCK"); lock.checked = true; click(lock)
 	local color = find(alarms, "Textfarbe: Rot"); click(color); click(color)
-	check(KaufAlarmDB.watches[3].color == "yellow" and color.txt == "Textfarbe: Gelb", "Textfarbe umschaltbar")
+	check(KaufAlarmDB.watches[5].color == "yellow" and color.txt == "Textfarbe: Gelb", "Textfarbe umschaltbar")
 	add.txt = "6265"; add.scripts.OnEnterPressed(add)
 	class = "WARLOCK"; items[6265] = 2; fire("BAG_UPDATE_DELAYED")
 	local expected = "NUR NOCH 2 Seelensplitter, 3 FEHLEN BIS 5! {quatsch}"
@@ -351,7 +397,7 @@ local function run(withBroker)
 	for _, f in ipairs(frames) do if f.parent == warn and f.shown and f.txt == expected then line = f end end
 	check(not line, "Klassenauswahl: Magier bekommt den Alarm nicht")
 	click(find(alarms, "Löschen")); check(popup and popup.arg == "Seelensplitter", "Löschen fragt nach")
-	StaticPopupDialogs.KAUFALARM_DELETE.OnAccept(); check(#KaufAlarmDB.watches == 2, "Alarm gelöscht")
+	StaticPopupDialogs.KAUFALARM_DELETE.OnAccept(); check(#KaufAlarmDB.watches == 4, "Alarm gelöscht")
 	alarms.shown = false
 
 	-- Rest
@@ -360,7 +406,9 @@ local function run(withBroker)
 	SlashCmdList.KAUFALARM("move"); check(warn.shown, "/ka move zeigt Rahmen")
 	warn.scripts.OnDragStop(warn); check(KaufAlarmDB.x == 5, "Position gespeichert")
 	SlashCmdList.KAUFALARM("reset"); check(KaufAlarmDB.x == 0 and KaufAlarmDB.y == 160, "/ka reset")
-	SlashCmdList.KAUFALARM("status"); check(chat[#chat]:find("Munition"), "/ka status listet die Alarme")
+	SlashCmdList.KAUFALARM("status")
+	local log = table.concat(chat, "\n")
+	check(log:find("Munition") and log:find("Gift auf Waffe: keine Waffe", 1, true), "/ka status listet die Alarme")
 end
 
 run(false)
@@ -411,9 +459,13 @@ do
 	events.scripts.OnEvent(events, "ADDON_LOADED", "KaufAlarm")
 	assert(KaufAlarmDB.watches[1].threshold == 600, "1000 -> 600")
 	assert(KaufAlarmDB.watches[2].threshold == 800, "eigener Wert bleibt")
+	assert(#KaufAlarmDB.watches == 4 and KaufAlarmDB.watches[3].weaponBuff and KaufAlarmDB.watches[4].name == "Gifte",
+		"Schurken-Alarme kommen zu alten Einstellungen dazu")
+	assert(KaufAlarmDB.watches[3].soundGroup == "Gift", "Gift-Alarme nutzen die Gift-Sounds")
 	KaufAlarmDB.watches[1].threshold = 1000 -- danach selbst wieder auf 1000 gestellt
 	events.scripts.OnEvent(events, "ADDON_LOADED", "KaufAlarm")
 	assert(KaufAlarmDB.watches[1].threshold == 1000, "Umstellung nur einmal")
+	assert(#KaufAlarmDB.watches == 4, "Schurken-Alarme nur einmal dazu")
 	print("ok   Munitions-Grenze 1000 -> 600")
 end
 print("alle Checks ok")

@@ -1,7 +1,8 @@
 # KaufAlarm
 
 WoW-Addon: zeigt groß **KAUF WASSER DU HUANSOHN!** auf dem Bildschirm, sobald dir Wasser,
-Munition oder etwas anderes ausgeht, und spielt dazu regelmäßig einen Sound.
+Munition, Gifte oder etwas anderes ausgeht – oder du als Schurke vergessen hast, deine Waffen zu
+vergiften – und spielt dazu regelmäßig einen Sound.
 
 ## Alarme
 
@@ -11,10 +12,15 @@ Jeder Alarm zählt eine Liste von Items zusammen und warnt unter seiner Grenze. 
 | --- | --- | --- | --- |
 | Wasser | Trichterwindentau (8766), Kristallwasser (8079), Sprudelwasser (8078) | 40 | Klassen mit Mana ab Stufe 45 |
 | Munition | die ausgerüstete Munition, egal welche Sorte | 600 | Jäger ab Stufe 10 |
+| Gift auf Waffe | Gift auf Waffen- und Schildhand (Schilde zählen nicht) | 5 Minuten Restlaufzeit | Schurken ab Stufe 20 |
+| Gifte | alle Ränge von Sofort wirkendem, Tödlichem, Verkrüppelndem, Gedankenbenebelndem und Wundgift | 10 | Schurken ab Stufe 20 |
+
+*Gift auf Waffe* warnt, sobald eine Waffe gar kein Gift hat oder es in weniger als 5 Minuten
+ausläuft, und nennt in der Zeile darunter die Hand, z. B. `Waffenhand: 30 min, Schildhand: kein Gift`.
 
 In den Optionen unter *Alarme* lässt sich für jeden Alarm einstellen: an/aus, Name, Warntext,
-Grenze, Mindeststufe, „nur Klassen mit Mana“, „ausgerüstete Munition mitzählen“, Klassenauswahl
-und die Item-Liste. Items fügst du per Shift-Klick, Item-Link, Item-ID oder Namen hinzu.
+Grenze, Mindeststufe, „nur Klassen mit Mana“, was geprüft wird (Items im Gepäck, dazu die
+ausgerüstete Munition, oder das Gift auf den Waffen), Klassenauswahl und die Item-Liste. Items fügst du per Shift-Klick, Item-Link, Item-ID oder Namen hinzu.
 Weitere Alarme (Seelensplitter, Reagenzien, Essen, Verbände …) legst du mit *Neuer Alarm* an.
 
 Warnen mehrere Alarme gleichzeitig, stehen ihre Texte untereinander.
@@ -31,6 +37,7 @@ Die Sounds liegen nach Gruppen in Unterordnern von `Sounds/`:
 | --- | --- |
 | `Sounds/Wasser/` | Alarm *Wasser* |
 | `Sounds/Munition/` | Alarm *Munition* |
+| `Sounds/Gift/` | Alarme *Gift auf Waffe* und *Gifte* (Brr Brr Patapim) |
 | `Sounds/Allgemein/` | neuen Alarmen; springt ein, wenn eine Gruppe leer ist (enthält den Murloc aus dem Spiel) |
 
 Jeder Alarm wählt seine Gruppe in den Optionen (*Alarme → Sounds: …*). Ein neuer Unterordner

@@ -391,15 +391,37 @@ local function BuildAlarms()
 	Register(page, preview)
 	local placeholders = page:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
 	placeholders:SetPoint("TOPLEFT", preview, "BOTTOMLEFT", 0, -3)
-	placeholders:SetText("Platzhalter im Warntext: {anzahl} im Gepäck, {grenze}, {fehlen} bis zur Grenze, {name} des Alarms")
-	Edit(page, "Warnen unter", 22, -220, 70, true,
+	placeholders:SetText("Platzhalter im Warntext: {anzahl} im Gepäck (bei Gift: Minuten), {grenze}, {fehlen} bis zur Grenze, {name}")
+	local threshold = Edit(page, "Warnen unter", 22, -220, 70, true,
 		function() return Watch().threshold end, function(v) Watch().threshold = math.max(1, v) end)
+	Register(page, { Refresh = function()
+		threshold.caption:SetText(Watch().weaponBuff and "Warnen unter (Min.)" or "Warnen unter")
+	end })
 	Edit(page, "Ab Stufe", 114, -220, 40, true,
 		function() return Watch().minLevel end, function(v) Watch().minLevel = math.max(1, v) end)
 	Check(page, "Nur Klassen mit Mana", 210, -206,
 		function() return Watch().manaOnly end, function(v) Watch().manaOnly = v or nil end)
-	Check(page, "Ausgerüstete Munition mitzählen (Jäger)", 210, -230,
-		function() return Watch().ammo end, function(v) Watch().ammo = v or nil end)
+	-- Was der Alarm prüft: Items im Gepäck, dazu die ausgerüstete Munition,
+	-- oder das Gift auf den Waffen (Grenze dann in Minuten).
+	local KINDS = { "items", "ammo", "weaponBuff" }
+	local KIND_NAMES = {
+		items = "Prüft: Items im Gepäck",
+		ammo = "Prüft: Items + ausgerüstete Munition",
+		weaponBuff = "Prüft: Gift auf den Waffen",
+	}
+	local function Kind(watch)
+		return watch.weaponBuff and "weaponBuff" or watch.ammo and "ammo" or "items"
+	end
+	Cycle(page, 210, -230, 300,
+		function() return KIND_NAMES[Kind(Watch())] end,
+		function()
+			local watch, next = Watch(), 1
+			for i, kind in ipairs(KINDS) do
+				if kind == Kind(watch) then next = i % #KINDS + 1 end
+			end
+			watch.ammo = KINDS[next] == "ammo" or nil
+			watch.weaponBuff = KINDS[next] == "weaponBuff" or nil
+		end)
 
 	local classLabel = page:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	classLabel:SetPoint("TOPLEFT", page, "TOPLEFT", 18, -262)
@@ -497,7 +519,8 @@ local function BuildAlarms()
 		for i = #ids + 1, #rows do rows[i]:Hide() end
 		list:SetHeight(math.max(1, #ids * 24))
 		empty:SetShown(#ids == 0)
-		empty:SetText(watch.ammo and "Keine Items. Gezählt wird die ausgerüstete Munition." or "Noch keine Items.")
+		empty:SetText(watch.weaponBuff and "Keine Items nötig: Dieser Alarm prüft das Gift auf deinen Waffen."
+			or watch.ammo and "Keine Items. Gezählt wird die ausgerüstete Munition." or "Noch keine Items.")
 	end
 	Register(page, list)
 	return page
