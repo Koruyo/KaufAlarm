@@ -15,19 +15,21 @@ Jeder Alarm zählt eine Liste von Items zusammen und warnt unter seiner Grenze. 
 | Gift auf Waffe | Gift auf Waffen- und Schildhand (Schilde zählen nicht) | 5 Minuten Restlaufzeit | Schurken ab Stufe 20 |
 | Gifte | alle Ränge von Sofort wirkendem, Tödlichem, Verkrüppelndem, Gedankenbenebelndem und Wundgift | 5 | Schurken ab Stufe 20 |
 
-*Gift auf Waffe* warnt nur im Kampf, sobald eine Waffe gar kein Gift hat oder es in weniger als
+*Gift auf Waffe* warnt nur im Kampf, dafür überall – auch in Dungeons, Raids und Schlachtfeldern –, sobald eine Waffe gar kein Gift hat oder es in weniger als
 5 Minuten ausläuft, und nennt in der Zeile darunter die Hand, z. B. `Waffenhand: 30 min, Schildhand: kein Gift`.
 
 In den Optionen unter *Alarme* lässt sich für jeden Alarm einstellen: an/aus, Name, Warntext,
 Grenze, Mindeststufe, „nur Klassen mit Mana“, was geprüft wird (Items im Gepäck, dazu die
 ausgerüstete Munition, oder das Gift auf den Waffen), wann im Kampf gewarnt wird (wie auf der
-Hauptseite, nur im Kampf oder immer), Klassenauswahl und die Item-Liste. Items fügst du per Shift-Klick, Item-Link, Item-ID oder Namen hinzu.
+Hauptseite, nur im Kampf oder immer), ob er auch in Dungeons, Raids und Schlachtfeldern warnt,
+Klassenauswahl und die Item-Liste. Items fügst du per Shift-Klick, Item-Link, Item-ID oder Namen hinzu.
 Weitere Alarme (Seelensplitter, Reagenzien, Essen, Verbände …) legst du mit *Neuer Alarm* an.
 
 Warnen mehrere Alarme gleichzeitig, stehen ihre Texte untereinander.
 
 Im Kampf (außer bei Alarmen auf „nur im Kampf“ oder „immer“) und in Dungeons, Raids,
-Schlachtfeldern und Arenen bleibt der Alarm still – weder Text
+Schlachtfeldern und Arenen (außer bei Alarmen mit dem Haken „Auch in Dungeons, Raids,
+Schlachtfeldern“, z. B. *Gift auf Waffe*) bleibt der Alarm still – weder Text
 noch Sound. Beides lässt sich auf der Hauptseite der Optionen (oder mit `/ka combat` und
 `/ka instanz`) einschalten.
 

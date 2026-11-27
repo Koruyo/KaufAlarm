@@ -434,14 +434,17 @@ local function BuildAlarms()
 			watch.combat = ns.COMBAT_MODES[next] ~= "default" and ns.COMBAT_MODES[next] or nil
 		end)
 
-	classLabel:SetPoint("TOPLEFT", page, "TOPLEFT", 18, -288)
+	Check(page, "Auch in Dungeons, Raids, Schlachtfeldern", 210, -256,
+		function() return Watch().instances end, function(v) Watch().instances = v or nil end)
+
+	classLabel:SetPoint("TOPLEFT", page, "TOPLEFT", 18, -300)
 	classLabel:SetText("Nur für diese Klassen (keine angehakt = alle Klassen):")
 	for i, class in ipairs(ns.CLASSES) do
 		local column, row = (i - 1) % 5, math.floor((i - 1) / 5)
 		local name = LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class] or class
 		local color = RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
 		if color and color.colorStr then name = "|c" .. color.colorStr .. name .. "|r" end
-		Check(page, name, 18 + column * 112, -303 - row * 24,
+		Check(page, name, 18 + column * 112, -315 - row * 24,
 			function() return Watch().classes and Watch().classes[class] end,
 			function(v)
 				local watch = Watch()
@@ -450,9 +453,9 @@ local function BuildAlarms()
 			end)
 	end
 
-	Header(page, "Items", -358)
+	Header(page, "Items", -370)
 	local addBox = CreateFrame("EditBox", "KaufAlarmItemEingabe", page, "InputBoxTemplate")
-	addBox:SetPoint("TOPLEFT", page, "TOPLEFT", 28, -393)
+	addBox:SetPoint("TOPLEFT", page, "TOPLEFT", 28, -405)
 	addBox:SetSize(300, 20)
 	addBox:SetAutoFocus(false)
 	local addLabel = page:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -472,7 +475,7 @@ local function BuildAlarms()
 	end
 	addBox:SetScript("OnEnterPressed", addItem)
 	addBox:SetScript("OnEscapePressed", function(self) self:SetText(""); self:ClearFocus() end)
-	Button(page, "Hinzufügen", 340, -391, 110, addItem)
+	Button(page, "Hinzufügen", 340, -403, 110, addItem)
 	-- Shift-Klick auf ein Item schreibt den Link in das Feld, solange es aktiv ist.
 	if hooksecurefunc and ChatEdit_InsertLink then
 		hooksecurefunc("ChatEdit_InsertLink", function(link)
@@ -480,7 +483,7 @@ local function BuildAlarms()
 		end)
 	end
 
-	local list = ScrollList(page, "KaufAlarmItemListe", -421, 135)
+	local list = ScrollList(page, "KaufAlarmItemListe", -433, 135)
 	local rows = {}
 	local empty = list:CreateFontString(nil, "ARTWORK", "GameFontDisable")
 	empty:SetPoint("TOPLEFT", 6, -6)

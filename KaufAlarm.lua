@@ -32,6 +32,7 @@ local function PoisonWatches()
 		minLevel = 20, -- Gifte gibt es ab Stufe 20
 		weaponBuff = true, -- prüft Gift (oder Öl/Wetzstein) auf Waffen- und Schildhand
 		combat = "only", -- erst im Kampf merkt man, dass das Gift fehlt
+		instances = true, -- auch in Dungeons, Raids und Schlachtfeldern
 		classes = { ROGUE = true },
 		soundGroup = "Gift",
 		color = "green",
@@ -194,7 +195,13 @@ local function SetupDB()
 			if watch.weaponBuff and watch.combat == nil then watch.combat = "only" end
 		end
 	end
-	db.schema = 5
+	-- Einmalig: "Gift auf Waffe" warnt auch in Dungeons, Raids und Schlachtfeldern.
+	if schema < 6 then
+		for _, watch in ipairs(db.watches) do
+			if watch.weaponBuff and watch.instances == nil then watch.instances = true end
+		end
+	end
+	db.schema = 6
 end
 
 --------------------------------------------------------------------------------
@@ -530,8 +537,9 @@ local function Update()
 	if not db then return end
 	local status = Status()
 	local low = {}
-	local allowed = db.showInInstances or not InGroupInstance()
+	local inInstance = InGroupInstance()
 	for _, entry in ipairs(status) do
+		local allowed = db.showInInstances or entry.watch.instances or not inInstance
 		if entry.low and allowed and ns.CombatAllows(entry.watch) then low[#low + 1] = entry end
 	end
 	alarmActive = #low > 0
